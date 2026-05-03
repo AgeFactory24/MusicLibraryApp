@@ -190,7 +190,7 @@ struct StoryShareSheet: View {
     }
 }
 
-// MARK: - シェアカード本体（TOP10、画像なし）
+// MARK: - シェアカード本体（TOP10、画像なし、文字大きめ）
 
 struct ShareCardContent: View {
     let data: StoryReportData
@@ -214,105 +214,125 @@ struct ShareCardContent: View {
         }
     }
 
-    // MARK: - 縦長（Instagram 1080×1920）TOP10対応
+    // MARK: - 縦長（Instagram 1080×1920）
+    // 全体を縦方向に広げて、文字を大きめにし、視認性を高める
 
     private var verticalLayout: some View {
-        VStack(alignment: .leading, spacing: 20) {
-            // ユーザー情報
-            HStack(spacing: 14) {
-                if let icon = iconImage {
-                    Image(uiImage: icon)
-                        .resizable().scaledToFill()
-                        .frame(width: 70, height: 70)
-                        .clipShape(Circle())
-                        .overlay(Circle().stroke(.white, lineWidth: 3))
-                } else {
-                    Circle()
-                        .fill(.white.opacity(0.25))
-                        .frame(width: 70, height: 70)
-                        .overlay {
-                            Image(systemName: "person.fill")
-                                .font(.system(size: 32))
-                                .foregroundStyle(.white)
-                        }
+        VStack(alignment: .leading, spacing: 0) {
+            // ===== 上部：ユーザー情報 + 期間 =====
+            VStack(alignment: .leading, spacing: 32) {
+                // ユーザー情報
+                HStack(spacing: 20) {
+                    if let icon = iconImage {
+                        Image(uiImage: icon)
+                            .resizable().scaledToFill()
+                            .frame(width: 100, height: 100)
+                            .clipShape(Circle())
+                            .overlay(Circle().stroke(.white, lineWidth: 4))
+                    } else {
+                        Circle()
+                            .fill(.white.opacity(0.25))
+                            .frame(width: 100, height: 100)
+                            .overlay {
+                                Image(systemName: "person.fill")
+                                    .font(.system(size: 44))
+                                    .foregroundStyle(.white)
+                            }
+                    }
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text(displayName)
+                            .font(.system(size: 42, weight: .bold))
+                            .foregroundStyle(.white)
+                            .lineLimit(1)
+                        Text("MUSIC LIBRARY")
+                            .font(.system(size: 18, weight: .heavy))
+                            .tracking(5)
+                            .foregroundStyle(.white.opacity(0.8))
+                    }
+                    Spacer()
                 }
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(displayName)
-                        .font(.system(size: 28, weight: .bold))
+
+                // 期間
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(data.title)
+                        .font(.system(size: 90, weight: .black, design: .rounded))
                         .foregroundStyle(.white)
-                    Text("MUSIC LIBRARY")
-                        .font(.system(size: 12, weight: .heavy))
-                        .tracking(4)
-                        .foregroundStyle(.white.opacity(0.8))
+                    Text("リスニングレポート")
+                        .font(.system(size: 32, weight: .medium))
+                        .foregroundStyle(.white.opacity(0.85))
                 }
-                Spacer()
             }
 
-            // 期間
-            VStack(alignment: .leading, spacing: 0) {
-                Text(data.title)
-                    .font(.system(size: 50, weight: .black, design: .rounded))
-                    .foregroundStyle(.white)
-                Text("リスニングレポート")
-                    .font(.system(size: 18, weight: .medium))
-                    .foregroundStyle(.white.opacity(0.85))
-            }
+            Spacer().frame(height: 48)
 
-            // 大きな数字
-            HStack(alignment: .lastTextBaseline) {
+            // ===== 中央上部：大きな数字 =====
+            HStack(alignment: .lastTextBaseline, spacing: 12) {
                 Text("\(data.totalPlayCount)")
-                    .font(.system(size: 90, weight: .black, design: .rounded))
+                    .font(.system(size: 160, weight: .black, design: .rounded))
                     .foregroundStyle(.white)
                     .lineLimit(1)
                     .minimumScaleFactor(0.5)
                 Text("回再生")
-                    .font(.system(size: 22, weight: .bold))
+                    .font(.system(size: 36, weight: .bold))
                     .foregroundStyle(.white.opacity(0.9))
                 Spacer()
-                Text(data.totalPlayTimeFormatted)
-                    .font(.system(size: 22, weight: .bold))
-                    .foregroundStyle(.white)
             }
 
-            Divider().background(.white.opacity(0.4))
+            HStack {
+                Image(systemName: "clock.fill")
+                    .font(.system(size: 28))
+                    .foregroundStyle(.white.opacity(0.85))
+                Text(data.totalPlayTimeFormatted)
+                    .font(.system(size: 36, weight: .bold))
+                    .foregroundStyle(.white.opacity(0.9))
+                Spacer()
+            }
 
-            // パーソナリティ（コンパクト化）
-            HStack(spacing: 12) {
+            Spacer().frame(height: 40)
+
+            // ===== パーソナリティ =====
+            HStack(spacing: 24) {
                 Text(data.personality.emoji)
-                    .font(.system(size: 44))
-                VStack(alignment: .leading, spacing: 2) {
+                    .font(.system(size: 80))
+                VStack(alignment: .leading, spacing: 6) {
                     Text("YOU ARE")
-                        .font(.system(size: 11, weight: .heavy))
-                        .tracking(3)
+                        .font(.system(size: 18, weight: .heavy))
+                        .tracking(4)
                         .foregroundStyle(.white.opacity(0.7))
                     Text(data.personality.title)
-                        .font(.system(size: 22, weight: .black, design: .rounded))
+                        .font(.system(size: 44, weight: .black, design: .rounded))
                         .foregroundStyle(.white)
                 }
                 Spacer()
             }
+            .padding(.vertical, 24)
+            .padding(.horizontal, 28)
+            .background(.white.opacity(0.12))
+            .clipShape(RoundedRectangle(cornerRadius: 24))
 
-            // 横並び：TOP10 アーティスト + TOP10 楽曲
-            HStack(alignment: .top, spacing: 16) {
+            Spacer().frame(height: 48)
+
+            // ===== TOP10 アーティスト + TOP10 楽曲（横並び）=====
+            HStack(alignment: .top, spacing: 28) {
                 // TOP10 アーティスト
-                VStack(alignment: .leading, spacing: 6) {
+                VStack(alignment: .leading, spacing: 14) {
                     Text("TOP ARTISTS")
-                        .font(.system(size: 12, weight: .heavy))
-                        .tracking(2.5)
-                        .foregroundStyle(.white.opacity(0.7))
+                        .font(.system(size: 20, weight: .heavy))
+                        .tracking(3)
+                        .foregroundStyle(.white.opacity(0.75))
                     ForEach(Array(data.topArtists.prefix(10).enumerated()), id: \.element.id) { index, artist in
-                        HStack(spacing: 8) {
+                        HStack(spacing: 12) {
                             Text("\(index + 1)")
-                                .font(.system(size: 14, weight: .black, design: .rounded))
+                                .font(.system(size: 26, weight: .black, design: .rounded))
                                 .foregroundStyle(.white)
-                                .frame(width: 18, alignment: .leading)
+                                .frame(width: 36, alignment: .leading)
                             Text(artist.name)
-                                .font(.system(size: 13, weight: .semibold))
+                                .font(.system(size: 24, weight: .semibold))
                                 .foregroundStyle(.white)
                                 .lineLimit(1)
-                            Spacer(minLength: 4)
+                            Spacer(minLength: 8)
                             Text("\(artist.totalPlayCount)")
-                                .font(.system(size: 12, weight: .heavy, design: .rounded))
+                                .font(.system(size: 22, weight: .heavy, design: .rounded))
                                 .foregroundStyle(.white.opacity(0.85))
                         }
                     }
@@ -320,30 +340,30 @@ struct ShareCardContent: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
 
                 // TOP10 楽曲
-                VStack(alignment: .leading, spacing: 6) {
+                VStack(alignment: .leading, spacing: 14) {
                     Text("TOP TRACKS")
-                        .font(.system(size: 12, weight: .heavy))
-                        .tracking(2.5)
-                        .foregroundStyle(.white.opacity(0.7))
+                        .font(.system(size: 20, weight: .heavy))
+                        .tracking(3)
+                        .foregroundStyle(.white.opacity(0.75))
                     ForEach(Array(data.topTracks.prefix(10).enumerated()), id: \.element.id) { index, track in
-                        HStack(spacing: 8) {
+                        HStack(spacing: 12) {
                             Text("\(index + 1)")
-                                .font(.system(size: 14, weight: .black, design: .rounded))
+                                .font(.system(size: 26, weight: .black, design: .rounded))
                                 .foregroundStyle(.white)
-                                .frame(width: 18, alignment: .leading)
-                            VStack(alignment: .leading, spacing: 0) {
+                                .frame(width: 36, alignment: .leading)
+                            VStack(alignment: .leading, spacing: 2) {
                                 Text(track.title)
-                                    .font(.system(size: 13, weight: .semibold))
+                                    .font(.system(size: 22, weight: .semibold))
                                     .foregroundStyle(.white)
                                     .lineLimit(1)
                                 Text(track.artistName)
-                                    .font(.system(size: 9))
-                                    .foregroundStyle(.white.opacity(0.6))
+                                    .font(.system(size: 16))
+                                    .foregroundStyle(.white.opacity(0.65))
                                     .lineLimit(1)
                             }
-                            Spacer(minLength: 4)
+                            Spacer(minLength: 8)
                             Text("\(track.playCount)")
-                                .font(.system(size: 12, weight: .heavy, design: .rounded))
+                                .font(.system(size: 22, weight: .heavy, design: .rounded))
                                 .foregroundStyle(.white.opacity(0.85))
                         }
                     }
@@ -353,20 +373,23 @@ struct ShareCardContent: View {
 
             Spacer()
 
+            // ===== フッター =====
             HStack {
                 Image(systemName: "music.note")
+                    .font(.system(size: 28))
                 Text("MusicLibrary")
-                    .font(.system(size: 16, weight: .heavy))
+                    .font(.system(size: 26, weight: .heavy))
                 Spacer()
                 Text("#MusicLibrary")
-                    .font(.system(size: 14, weight: .medium))
+                    .font(.system(size: 22, weight: .medium))
             }
             .foregroundStyle(.white.opacity(0.7))
         }
-        .padding(50)
+        .padding(.horizontal, 70)
+        .padding(.vertical, 90)
     }
 
-    // MARK: - 横長（Twitter 1200×630）TOP10対応
+    // MARK: - 横長（Twitter 1200×630）
 
     private var horizontalLayout: some View {
         HStack(spacing: 24) {
