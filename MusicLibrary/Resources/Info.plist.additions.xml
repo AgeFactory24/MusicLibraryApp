@@ -1,0 +1,13 @@
+<!--
+  Info.plist に追加する設定（参考）
+  実際のXcodeプロジェクトでは Info タブから設定するか、
+  Info.plistファイルを直接編集してください
+-->
+
+<!-- Apple Music / MediaLibraryへのアクセス許可 -->
+<key>NSAppleMusicUsageDescription</key>
+<string>音楽ライブラリの再生情報を分析するために使用します</string>
+
+<!-- 写真ライブラリへのアクセス許可（カスタムアートワーク用） -->
+<key>NSPhotoLibraryUsageDescription</key>
+<string>アーティスト・アルバム画像のカスタマイズに使用します</string>
