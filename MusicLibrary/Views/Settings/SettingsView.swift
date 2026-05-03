@@ -285,7 +285,7 @@ struct SettingsView: View {
 
     private var appVersion: String {
         let dict = Bundle.main.infoDictionary
-        return dict?["CFBundleShortVersionString"] as? String ?? "1.0"
+        return dict?["CFBundleShortVersionString"] as? String ?? "2.0"
     }
 }
 

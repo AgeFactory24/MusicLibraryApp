@@ -65,7 +65,7 @@ private struct TopTracksSection: View {
                     NavigationLink {
                         TrackDetailView(track: track)
                     } label: {
-                        RankingRowView(rank: index + 1, track: track)
+                        HomeRankingRow(rank: index + 1, track: track)
                             .contentShape(Rectangle())
                     }
                     .buttonStyle(.plain)
@@ -75,6 +75,78 @@ private struct TopTracksSection: View {
             .background(Color(.secondarySystemBackground))
             .clipShape(RoundedRectangle(cornerRadius: 12))
             .padding(.horizontal)
+        }
+    }
+}
+
+/// ホーム画面用：再生回数が見切れないようレイアウト最適化
+private struct HomeRankingRow: View {
+    let rank: Int
+    let track: Track
+
+    var rankColor: Color {
+        switch rank {
+        case 1: return .yellow
+        case 2: return Color(.systemGray)
+        case 3: return .orange
+        default: return .primary
+        }
+    }
+
+    var body: some View {
+        HStack(spacing: 12) {
+            // ランク（固定幅）
+            Text(rankMedal)
+                .font(rank <= 3 ? .title2 : .subheadline.bold())
+                .foregroundStyle(rankColor)
+                .frame(width: 32, alignment: .center)
+
+            TrackArtworkView(track: track, size: 44)
+
+            // 楽曲情報（柔軟に縮む）
+            VStack(alignment: .leading, spacing: 2) {
+                HStack(spacing: 6) {
+                    Text(track.title)
+                        .font(.subheadline.bold())
+                        .lineLimit(1)
+                        .foregroundStyle(.primary)
+                    if track.isLocalAsset {
+                        Image(systemName: "opticaldisc")
+                            .font(.caption2)
+                            .foregroundStyle(.blue)
+                    }
+                }
+                Text(track.artistName)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+
+            // 再生回数（固定幅、見切れないよう少し広め）
+            VStack(alignment: .trailing, spacing: 2) {
+                Text("\(track.playCount)")
+                    .font(.subheadline.bold())
+                    .foregroundStyle(.pink)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.8)
+                Text("回")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+            }
+            .frame(minWidth: 50, alignment: .trailing)
+            .fixedSize(horizontal: true, vertical: false)
+        }
+        .padding(.vertical, 10)
+        .padding(.horizontal, 14)
+    }
+
+    private var rankMedal: String {
+        switch rank {
+        case 1: return "🥇"
+        case 2: return "🥈"
+        case 3: return "🥉"
+        default: return "\(rank)"
         }
     }
 }

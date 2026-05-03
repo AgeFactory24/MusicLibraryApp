@@ -7,7 +7,7 @@ import SwiftUI
 import Charts
 
 struct YearlyReportView: View {
-    @StateObject private var viewModel = YearlyReportViewModel()
+    @EnvironmentObject var viewModel: YearlyReportViewModel
     @EnvironmentObject var libraryVM: LibraryViewModel
     @EnvironmentObject var artworkService: ArtworkService
     @EnvironmentObject var historyTracker: PlayHistoryTracker
@@ -40,7 +40,6 @@ struct YearlyReportView: View {
             Haptics.play(.light)
             viewModel.loadReport(libraryTracks: libraryVM.tracks)
         }
-        // ← 履歴同期完了時に再読込
         .onChange(of: historyTracker.lastSyncCompletedAt) { _, _ in
             viewModel.loadReport(libraryTracks: libraryVM.tracks)
         }
@@ -116,7 +115,7 @@ struct YearlyReportView: View {
 
             HStack(spacing: 16) {
                 Label(report.totalPlayTimeFormatted, systemImage: "clock.fill")
-                    .font(.subheadline)
+                    .font(.caption)
                     .foregroundStyle(.secondary)
                 Spacer()
             }

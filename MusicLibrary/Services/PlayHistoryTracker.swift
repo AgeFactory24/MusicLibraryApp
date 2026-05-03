@@ -30,10 +30,10 @@ final class PlayHistoryTracker: ObservableObject {
     private var lastSyncedAt: Date?
     private let minSyncInterval: TimeInterval = 30
 
-    /// 1曲あたり最大何件の履歴を生成するか（パフォーマンス対策）
-    static let maxHistoryPerTrack = 50
+    /// 1曲あたり最大何件の履歴を生成するか
+    /// 300件 → 大半の楽曲が正確に反映される
+    static let maxHistoryPerTrack = 300
 
-    /// 一度に保存する履歴の件数（メモリ膨張を防ぐ）
     static let batchSaveSize = 500
 
     private let backfilledKey = "MusicLibrary.HasBackfilled"
@@ -47,7 +47,6 @@ final class PlayHistoryTracker: ObservableObject {
         self.container = PersistenceController.shared.container
     }
 
-    /// 起動時/フォアグラウンド復帰時に呼ぶ
     func syncPlayHistory(force: Bool = false) async {
         if !force, let last = lastSyncedAt,
            Date().timeIntervalSince(last) < minSyncInterval {
@@ -94,34 +93,27 @@ final class PlayHistoryTracker: ObservableObject {
         }
     }
 
-    /// デバッグ用：履歴を全削除してバックフィルし直す
     func resetAndRebuildHistory() async {
         print("🔄 履歴リセット開始")
-
         hasBackfilled = false
 
         let bgContext = container.newBackgroundContext()
         await bgContext.perform {
             let historyRequest: NSFetchRequest<NSFetchRequestResult> = NSFetchRequest(entityName: "PlayHistoryEntity")
-            let historyDelete = NSBatchDeleteRequest(fetchRequest: historyRequest)
-            try? bgContext.execute(historyDelete)
+            try? bgContext.execute(NSBatchDeleteRequest(fetchRequest: historyRequest))
 
             let snapshotRequest: NSFetchRequest<NSFetchRequestResult> = NSFetchRequest(entityName: "PlayCountSnapshotEntity")
-            let snapshotDelete = NSBatchDeleteRequest(fetchRequest: snapshotRequest)
-            try? bgContext.execute(snapshotDelete)
+            try? bgContext.execute(NSBatchDeleteRequest(fetchRequest: snapshotRequest))
 
             try? bgContext.save()
         }
 
         context.refreshAllObjects()
-
         lastSyncedAt = nil
         await syncPlayHistory(force: true)
 
         print("✅ 履歴リセット完了")
     }
-
-    // MARK: - 初回バックフィル（バッチ処理）
 
     private func performInitialBackfillBatched(snapshots: [MediaItemSnapshot]) async {
         let sorted = snapshots.sorted { $0.playCount > $1.playCount }
@@ -129,7 +121,8 @@ final class PlayHistoryTracker: ObservableObject {
         var processed = 0
         var totalCreated = 0
 
-        let trackChunkSize = 100
+        // 履歴件数が増えるためチャンクサイズを縮小
+        let trackChunkSize = 50
 
         for chunkStart in stride(from: 0, to: sorted.count, by: trackChunkSize) {
             let chunkEnd = min(chunkStart + trackChunkSize, sorted.count)
@@ -158,13 +151,14 @@ final class PlayHistoryTracker: ObservableObject {
                 self.syncProgress = SyncProgress(processed: processed, total: total)
             }
 
-            print("📦 進捗: \(processed)/\(total) 楽曲処理完了 (累計\(totalCreated)件作成)")
+            if processed % 500 == 0 || processed == total {
+                print("📦 進捗: \(processed)/\(total) (累計\(totalCreated)件)")
+            }
         }
 
         print("✅ バックフィル完了: 合計\(totalCreated)件の履歴を作成")
     }
 
-    /// 1チャンク（100楽曲程度）を処理
     private static func processBackfillChunk(
         snapshots: [MediaItemSnapshot],
         in context: NSManagedObjectContext
@@ -180,9 +174,7 @@ final class PlayHistoryTracker: ObservableObject {
             existingRequest.predicate = NSPredicate(format: "trackID == %@", snapshot.trackID)
             let existingCount = (try? context.count(for: existingRequest)) ?? 0
 
-            if existingCount > 0 {
-                continue
-            }
+            if existingCount > 0 { continue }
 
             let entriesToCreate = min(Int(snapshot.playCount), maxHistoryPerTrack)
 
@@ -203,8 +195,6 @@ final class PlayHistoryTracker: ObservableObject {
         return created
     }
 
-    // MARK: - 差分同期（バッチ処理）
-
     private func performIncrementalSyncBatched(snapshots: [MediaItemSnapshot]) async {
         let bgContext = container.newBackgroundContext()
         bgContext.mergePolicy = NSMergeByPropertyObjectTrumpMergePolicy
@@ -221,7 +211,6 @@ final class PlayHistoryTracker: ObservableObject {
 
                 let diff = currentCount - previousCount
                 if diff > 0 {
-                    // ↓ 修正: Self. を付ける
                     let entriesToCreate = min(Int(diff), Self.maxHistoryPerTrack)
 
                     for i in 0..<entriesToCreate {
@@ -241,7 +230,6 @@ final class PlayHistoryTracker: ObservableObject {
 
                 Self.updateSnapshot(trackID: trackID, count: currentCount, in: bgContext)
 
-                // ↓ 修正: Self. を付ける
                 if processedSinceLastSave >= Self.batchSaveSize {
                     do {
                         try bgContext.save()
@@ -258,8 +246,6 @@ final class PlayHistoryTracker: ObservableObject {
                     try bgContext.save()
                     if newHistoryCount > 0 {
                         print("✅ \(newHistoryCount)件の再生履歴を追加")
-                    } else {
-                        print("ℹ️ 差分同期: 新規履歴なし")
                     }
                 } catch {
                     print("⚠️ 同期保存失敗: \(error)")
@@ -267,8 +253,6 @@ final class PlayHistoryTracker: ObservableObject {
             }
         }
     }
-
-    // MARK: - Helpers
 
     private static func fetchAllSnapshots(in context: NSManagedObjectContext) -> [String: Int32] {
         let request = NSFetchRequest<PlayCountSnapshotEntity>(entityName: "PlayCountSnapshotEntity")
@@ -282,9 +266,7 @@ final class PlayHistoryTracker: ObservableObject {
     }
 
     private static func updateSnapshot(
-        trackID: String,
-        count: Int32,
-        in context: NSManagedObjectContext
+        trackID: String, count: Int32, in context: NSManagedObjectContext
     ) {
         let request = NSFetchRequest<PlayCountSnapshotEntity>(entityName: "PlayCountSnapshotEntity")
         request.predicate = NSPredicate(format: "trackID == %@", trackID)

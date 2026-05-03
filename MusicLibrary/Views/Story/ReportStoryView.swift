@@ -29,7 +29,6 @@ struct StoryReportData {
         } else if minutes > 0 {
             return "\(minutes)分"
         } else {
-            // 1分未満なら秒で表示
             return "\(totalSeconds)秒"
         }
     }
@@ -120,7 +119,6 @@ struct ReportStoryView: View {
         .gesture(dismissGesture)
         .onAppear { startTimer() }
         .onDisappear {
-            // メモリリーク対策：必ずタイマーを停止・解放
             autoAdvanceTimer?.invalidate()
             autoAdvanceTimer = nil
         }
@@ -509,6 +507,8 @@ private struct GenreBar: View {
     }
 }
 
+// MARK: - TOP Artists（10件1画面に収まるよう縮小）
+
 private struct TopArtistsPage: View {
     let data: StoryReportData
     @State private var animate = false
@@ -517,61 +517,75 @@ private struct TopArtistsPage: View {
         ZStack {
             StoryBackground(colors: [.indigo, .purple])
 
-            VStack(spacing: 16) {
-                Spacer().frame(height: 100)
-
-                Text("TOP ARTISTS")
-                    .font(.system(size: 14, weight: .heavy))
-                    .tracking(4)
-                    .foregroundStyle(.white.opacity(0.7))
-                Text("最も聴いたアーティスト")
-                    .font(.title2.bold())
-                    .foregroundStyle(.white)
-
-                Spacer().frame(height: 8)
-
-                ScrollView {
-                    VStack(spacing: 10) {
-                        ForEach(Array(data.topArtists.prefix(10).enumerated()), id: \.element.id) { index, artist in
-                            HStack(spacing: 14) {
-                                Text("\(index + 1)")
-                                    .font(.system(size: 28, weight: .black, design: .rounded))
-                                    .foregroundStyle(index == 0 ? .yellow : .white)
-                                    .frame(width: 44, alignment: .leading)
-                                ArtistArtworkView(artist: artist, size: 44)
-                                VStack(alignment: .leading, spacing: 2) {
-                                    Text(artist.name)
-                                        .font(.subheadline.bold())
-                                        .foregroundStyle(.white)
-                                        .lineLimit(1)
-                                    Text("\(artist.totalPlayCount)回")
-                                        .font(.caption2)
-                                        .foregroundStyle(.white.opacity(0.7))
-                                }
-                                Spacer()
-                            }
-                            .padding(.horizontal, 14)
-                            .padding(.vertical, 6)
-                            .background(.white.opacity(0.1))
-                            .clipShape(RoundedRectangle(cornerRadius: 12))
-                            .opacity(animate ? 1 : 0)
-                            .offset(x: animate ? 0 : -50)
-                            .animation(
-                                .spring(response: 0.6, dampingFraction: 0.7).delay(Double(index) * 0.05),
-                                value: animate
-                            )
-                        }
-                    }
-                    .padding(.horizontal)
+            VStack(spacing: 0) {
+                // ヘッダー
+                VStack(spacing: 4) {
+                    Text("TOP ARTISTS")
+                        .font(.system(size: 13, weight: .heavy))
+                        .tracking(4)
+                        .foregroundStyle(.white.opacity(0.7))
+                    Text("最も聴いたアーティスト")
+                        .font(.headline.bold())
+                        .foregroundStyle(.white)
                 }
-                .scrollIndicators(.hidden)
+                .padding(.top, 80)
+                .padding(.bottom, 20)
 
-                Spacer().frame(height: 60)
+                // ランキング10件（小さくして1画面に収める）
+                VStack(spacing: 6) {
+                    ForEach(Array(data.topArtists.prefix(10).enumerated()), id: \.element.id) { index, artist in
+                        CompactArtistRow(rank: index + 1, artist: artist, animate: animate)
+                    }
+                }
+                .padding(.horizontal, 16)
+
+//                Spacer(minLength: 60)
             }
         }
         .onAppear { animate = true }
     }
 }
+
+private struct CompactArtistRow: View {
+    let rank: Int
+    let artist: Artist
+    let animate: Bool
+
+    var body: some View {
+        HStack(spacing: 10) {
+            Text("\(rank)")
+                .font(.system(size: 22, weight: .black, design: .rounded))
+                .foregroundStyle(rank == 1 ? .yellow : .white)
+                .frame(width: 36, alignment: .leading)
+
+            ArtistArtworkView(artist: artist, size: 36)
+
+            VStack(alignment: .leading, spacing: 1) {
+                Text(artist.name)
+                    .font(.system(size: 14, weight: .bold))
+                    .foregroundStyle(.white)
+                    .lineLimit(1)
+                Text("\(artist.totalPlayCount)回")
+                    .font(.system(size: 11))
+                    .foregroundStyle(.white.opacity(0.7))
+            }
+
+            Spacer()
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 4)
+        .background(.white.opacity(0.1))
+        .clipShape(RoundedRectangle(cornerRadius: 10))
+        .opacity(animate ? 1 : 0)
+        .offset(x: animate ? 0 : -50)
+        .animation(
+            .spring(response: 0.6, dampingFraction: 0.7).delay(Double(rank - 1) * 0.04),
+            value: animate
+        )
+    }
+}
+
+// MARK: - TOP Tracks（10件1画面）
 
 private struct TopTracksPage: View {
     let data: StoryReportData
@@ -581,63 +595,74 @@ private struct TopTracksPage: View {
         ZStack {
             StoryBackground(colors: [.teal, .cyan])
 
-            VStack(spacing: 16) {
-                Spacer().frame(height: 100)
-
-                Text("TOP TRACKS")
-                    .font(.system(size: 14, weight: .heavy))
-                    .tracking(4)
-                    .foregroundStyle(.white.opacity(0.7))
-                Text("最も聴いた楽曲")
-                    .font(.title2.bold())
-                    .foregroundStyle(.white)
-
-                Spacer().frame(height: 8)
-
-                ScrollView {
-                    VStack(spacing: 10) {
-                        ForEach(Array(data.topTracks.prefix(10).enumerated()), id: \.element.id) { index, track in
-                            HStack(spacing: 14) {
-                                Text("\(index + 1)")
-                                    .font(.system(size: 26, weight: .black, design: .rounded))
-                                    .foregroundStyle(index == 0 ? .yellow : .white)
-                                    .frame(width: 36, alignment: .leading)
-                                TrackArtworkView(track: track, size: 44)
-                                VStack(alignment: .leading, spacing: 2) {
-                                    Text(track.title)
-                                        .font(.subheadline.bold())
-                                        .foregroundStyle(.white)
-                                        .lineLimit(1)
-                                    Text(track.artistName)
-                                        .font(.caption2)
-                                        .foregroundStyle(.white.opacity(0.7))
-                                        .lineLimit(1)
-                                }
-                                Spacer()
-                                Text("\(track.playCount)")
-                                    .font(.headline.bold())
-                                    .foregroundStyle(.white)
-                            }
-                            .padding(.horizontal, 14)
-                            .padding(.vertical, 6)
-                            .background(.white.opacity(0.1))
-                            .clipShape(RoundedRectangle(cornerRadius: 12))
-                            .opacity(animate ? 1 : 0)
-                            .offset(x: animate ? 0 : -50)
-                            .animation(
-                                .spring(response: 0.6, dampingFraction: 0.7).delay(Double(index) * 0.05),
-                                value: animate
-                            )
-                        }
-                    }
-                    .padding(.horizontal)
+            VStack(spacing: 0) {
+                VStack(spacing: 4) {
+                    Text("TOP TRACKS")
+                        .font(.system(size: 13, weight: .heavy))
+                        .tracking(4)
+                        .foregroundStyle(.white.opacity(0.7))
+                    Text("最も聴いた楽曲")
+                        .font(.headline.bold())
+                        .foregroundStyle(.white)
                 }
-                .scrollIndicators(.hidden)
+                .padding(.top, 80)
+                .padding(.bottom, 20)
 
-                Spacer().frame(height: 60)
+                VStack(spacing: 6) {
+                    ForEach(Array(data.topTracks.prefix(10).enumerated()), id: \.element.id) { index, track in
+                        CompactTrackRow(rank: index + 1, track: track, animate: animate)
+                    }
+                }
+                .padding(.horizontal, 16)
+
+//                Spacer(minLength: 60)
             }
         }
         .onAppear { animate = true }
+    }
+}
+
+private struct CompactTrackRow: View {
+    let rank: Int
+    let track: Track
+    let animate: Bool
+
+    var body: some View {
+        HStack(spacing: 10) {
+            Text("\(rank)")
+                .font(.system(size: 20, weight: .black, design: .rounded))
+                .foregroundStyle(rank == 1 ? .yellow : .white)
+                .frame(width: 30, alignment: .leading)
+
+            TrackArtworkView(track: track, size: 36)
+
+            VStack(alignment: .leading, spacing: 1) {
+                Text(track.title)
+                    .font(.system(size: 13, weight: .bold))
+                    .foregroundStyle(.white)
+                    .lineLimit(1)
+                Text(track.artistName)
+                    .font(.system(size: 10))
+                    .foregroundStyle(.white.opacity(0.7))
+                    .lineLimit(1)
+            }
+
+            Spacer()
+
+            Text("\(track.playCount)")
+                .font(.system(size: 14, weight: .heavy))
+                .foregroundStyle(.white)
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 4)
+        .background(.white.opacity(0.1))
+        .clipShape(RoundedRectangle(cornerRadius: 10))
+        .opacity(animate ? 1 : 0)
+        .offset(x: animate ? 0 : -50)
+        .animation(
+            .spring(response: 0.6, dampingFraction: 0.7).delay(Double(rank - 1) * 0.04),
+            value: animate
+        )
     }
 }
 

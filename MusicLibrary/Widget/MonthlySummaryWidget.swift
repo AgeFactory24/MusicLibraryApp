@@ -2,14 +2,12 @@
 //  MonthlySummaryWidget.swift
 //  MusicLibraryWidget
 //
-//  Largeサイズ：今月のサマリー（総再生回数 + TOP3楽曲 + TOP3アーティスト）
+//  「今月」= 1日0:00 〜 現在
 //
 
 import WidgetKit
 import SwiftUI
 import CoreData
-
-// MARK: - Entry
 
 struct MonthlySummaryEntry: TimelineEntry {
     let date: Date
@@ -17,8 +15,6 @@ struct MonthlySummaryEntry: TimelineEntry {
     let topTracks: [(title: String, artist: String, count: Int)]
     let topArtists: [(name: String, count: Int)]
 }
-
-// MARK: - Provider
 
 struct MonthlySummaryProvider: TimelineProvider {
     func placeholder(in context: Context) -> MonthlySummaryEntry {
@@ -44,18 +40,23 @@ struct MonthlySummaryProvider: TimelineProvider {
         completion(Timeline(entries: [entry], policy: .after(nextUpdate)))
     }
 
+    /// 「今月」= 月初の0:00 〜 現在
     private func loadEntry() -> MonthlySummaryEntry {
-        let context = PersistenceController.shared.container.viewContext
         let calendar = Calendar.current
-        let startOfMonth = calendar.dateInterval(of: .month, for: Date())?.start ?? Date()
+        let now = Date()
+        let startOfMonth = calendar.dateInterval(of: .month, for: now)?.start ?? now
+
+        let context = PersistenceController.shared.container.viewContext
 
         let request = NSFetchRequest<PlayHistoryEntity>(entityName: "PlayHistoryEntity")
-        request.predicate = NSPredicate(format: "playedAt >= %@", startOfMonth as NSDate)
+        request.predicate = NSPredicate(
+            format: "playedAt >= %@ AND playedAt <= %@",
+            startOfMonth as NSDate, now as NSDate
+        )
 
         let entries = (try? context.fetch(request)) ?? []
         let totalCount = entries.count
 
-        // TOP3楽曲
         let trackGroups = Dictionary(grouping: entries, by: \.trackID)
         let topTracks = trackGroups
             .compactMap { _, list -> (String, String, Int)? in
@@ -66,7 +67,6 @@ struct MonthlySummaryProvider: TimelineProvider {
             .prefix(3)
             .map { ($0.0, $0.1, $0.2) }
 
-        // TOP3アーティスト
         let artistGroups = Dictionary(grouping: entries, by: \.artistName)
         let topArtists = artistGroups
             .map { ($0.key, $0.value.count) }
@@ -75,7 +75,7 @@ struct MonthlySummaryProvider: TimelineProvider {
             .map { ($0.0, $0.1) }
 
         return MonthlySummaryEntry(
-            date: Date(),
+            date: now,
             totalCount: totalCount,
             topTracks: Array(topTracks),
             topArtists: Array(topArtists)
@@ -83,14 +83,11 @@ struct MonthlySummaryProvider: TimelineProvider {
     }
 }
 
-// MARK: - View
-
 struct MonthlySummaryWidgetView: View {
     let entry: MonthlySummaryEntry
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
-            // ヘッダー
             HStack {
                 VStack(alignment: .leading, spacing: 2) {
                     Text("THIS MONTH")
@@ -108,7 +105,6 @@ struct MonthlySummaryWidgetView: View {
 
             Divider()
 
-            // TOP楽曲
             VStack(alignment: .leading, spacing: 4) {
                 Text("TOP TRACKS")
                     .font(.system(size: 9, weight: .heavy))
@@ -139,7 +135,6 @@ struct MonthlySummaryWidgetView: View {
 
             Divider()
 
-            // TOPアーティスト
             VStack(alignment: .leading, spacing: 4) {
                 Text("TOP ARTISTS")
                     .font(.system(size: 9, weight: .heavy))
@@ -172,8 +167,6 @@ struct MonthlySummaryWidgetView: View {
         }
     }
 }
-
-// MARK: - Widget
 
 struct MonthlySummaryWidget: Widget {
     var body: some WidgetConfiguration {

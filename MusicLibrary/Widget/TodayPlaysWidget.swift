@@ -7,16 +7,12 @@ import WidgetKit
 import SwiftUI
 import CoreData
 
-// MARK: - Entry
-
 struct TodayPlaysEntry: TimelineEntry {
     let date: Date
     let playCount: Int
     let topTrackTitle: String
     let topArtistName: String
 }
-
-// MARK: - Provider
 
 struct TodayPlaysProvider: TimelineProvider {
 
@@ -40,36 +36,34 @@ struct TodayPlaysProvider: TimelineProvider {
         completion(timeline)
     }
 
+    /// 「今日」= 今日の00:00 〜 現在
     private func loadEntry() -> TodayPlaysEntry {
         let calendar = Calendar.current
-        let startOfDay = calendar.startOfDay(for: Date())
-        let endOfDay = calendar.date(byAdding: .day, value: 1, to: startOfDay)!
+        let now = Date()
+        let startOfDay = calendar.startOfDay(for: now)
 
         let context = PersistenceController.shared.container.viewContext
 
         let request = NSFetchRequest<PlayHistoryEntity>(entityName: "PlayHistoryEntity")
         request.predicate = NSPredicate(
-            format: "playedAt >= %@ AND playedAt < %@",
-            startOfDay as NSDate, endOfDay as NSDate
+            format: "playedAt >= %@ AND playedAt <= %@",
+            startOfDay as NSDate, now as NSDate
         )
 
         let entries = (try? context.fetch(request)) ?? []
         let count = entries.count
 
-        // 最頻トラック
         let grouped = Dictionary(grouping: entries, by: \.trackID)
         let top = grouped.max(by: { $0.value.count < $1.value.count })?.value.first
 
         return TodayPlaysEntry(
-            date: Date(),
+            date: now,
             playCount: count,
             topTrackTitle: top?.title ?? "再生なし",
             topArtistName: top?.artistName ?? ""
         )
     }
 }
-
-// MARK: - Views
 
 struct TodayPlaysWidgetView: View {
     let entry: TodayPlaysEntry
@@ -100,6 +94,8 @@ struct TodayPlaysWidgetView: View {
             Text("\(entry.playCount)")
                 .font(.system(size: 44, weight: .black, design: .rounded))
                 .foregroundStyle(.primary)
+                .minimumScaleFactor(0.6)
+                .lineLimit(1)
 
             Text("回再生")
                 .font(.caption)
@@ -122,6 +118,8 @@ struct TodayPlaysWidgetView: View {
                     .foregroundStyle(.pink)
                 Text("\(entry.playCount)")
                     .font(.system(size: 44, weight: .black, design: .rounded))
+                    .minimumScaleFactor(0.6)
+                    .lineLimit(1)
                 Text("回再生")
                     .font(.caption)
                     .foregroundStyle(.secondary)
@@ -151,8 +149,6 @@ struct TodayPlaysWidgetView: View {
         }
     }
 }
-
-// MARK: - Widget
 
 struct TodayPlaysWidget: Widget {
     var body: some WidgetConfiguration {

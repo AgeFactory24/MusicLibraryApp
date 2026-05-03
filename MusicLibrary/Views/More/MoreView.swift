@@ -6,12 +6,18 @@
 import SwiftUI
 
 struct MoreView: View {
+    @StateObject private var yearlyVM = YearlyReportViewModel()
+
     var body: some View {
         NavigationStack {
             List {
                 Section {
                     NavigationLink {
                         YearlyReportView()
+                            .environmentObject(yearlyVM)
+                            .onAppear {
+                                yearlyVM.resetToCurrent()
+                            }
                     } label: {
                         MoreItemRow(
                             icon: "calendar.badge.clock",

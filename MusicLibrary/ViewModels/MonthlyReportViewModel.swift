@@ -28,14 +28,10 @@ struct MonthlyReport {
     var totalPlayTimeFormatted: String {
         let hours = Int(totalPlayTime) / 3600
         let minutes = (Int(totalPlayTime) % 3600) / 60
-        if hours > 0 {
-            return "\(hours)時間\(minutes)分"
-        } else {
-            return "\(minutes)分"
-        }
+        if hours > 0 { return "\(hours)時間\(minutes)分" }
+        return "\(minutes)分"
     }
 
-    /// 最も聴いた日（月別の場合は「日」、年間の場合は「月」に相当）
     struct TopDay {
         let day: Int
         let playCount: Int
@@ -51,6 +47,17 @@ final class MonthlyReportViewModel: ObservableObject {
 
     private let repository = PlayHistoryRepository()
 
+    /// 「今月」にリセット
+    func resetToCurrent() {
+        let now = Date()
+        let calendar = Calendar.current
+        let currentYear = calendar.component(.year, from: now)
+        let currentMonth = calendar.component(.month, from: now)
+
+        if selectedYear != currentYear { selectedYear = currentYear }
+        if selectedMonth != currentMonth { selectedMonth = currentMonth }
+    }
+
     func loadReport(libraryTracks: [Track] = []) {
         let calendar = Calendar.current
         guard let from = calendar.date(from: DateComponents(year: selectedYear, month: selectedMonth, day: 1)),
@@ -63,7 +70,9 @@ final class MonthlyReportViewModel: ObservableObject {
         let totalPlayCount = history.count
         let totalPlayTime = history.reduce(0) { $0 + $1.duration }
 
-        // TOP楽曲
+        let libraryMap = Dictionary(uniqueKeysWithValues: libraryTracks.map { ($0.id, $0) })
+
+        // TOP楽曲：履歴件数 = その月の再生回数
         let trackGroups = Dictionary(grouping: history, by: \.trackID)
         let topTracks = trackGroups
             .map { id, entries -> Track in
@@ -74,7 +83,8 @@ final class MonthlyReportViewModel: ObservableObject {
                     playCount: entries.count, duration: first.duration,
                     artworkURL: nil, isLocalAsset: first.isLocalAsset,
                     lastPlayedDate: entries.first?.playedAt,
-                    genre: "", dateAdded: nil
+                    genre: libraryMap[id]?.genre ?? "",
+                    dateAdded: libraryMap[id]?.dateAdded
                 )
             }
             .sorted { $0.playCount > $1.playCount }
@@ -85,7 +95,7 @@ final class MonthlyReportViewModel: ObservableObject {
         let topArtists = artistGroups
             .map { name, entries -> Artist in
                 let tracks = Dictionary(grouping: entries, by: \.trackID)
-                    .map { _, group -> Track in
+                    .map { id, group -> Track in
                         let first = group[0]
                         return Track(
                             id: first.trackID, title: first.title,
@@ -93,7 +103,8 @@ final class MonthlyReportViewModel: ObservableObject {
                             playCount: group.count, duration: first.duration,
                             artworkURL: nil, isLocalAsset: first.isLocalAsset,
                             lastPlayedDate: group.first?.playedAt,
-                            genre: "", dateAdded: nil
+                            genre: libraryMap[id]?.genre ?? "",
+                            dateAdded: libraryMap[id]?.dateAdded
                         )
                     }
                 return Artist(id: name, name: name, artworkURL: nil, tracks: tracks)
@@ -106,7 +117,7 @@ final class MonthlyReportViewModel: ObservableObject {
         let topAlbums = albumGroups
             .map { title, entries -> Album in
                 let tracks = Dictionary(grouping: entries, by: \.trackID)
-                    .map { _, group -> Track in
+                    .map { id, group -> Track in
                         let first = group[0]
                         return Track(
                             id: first.trackID, title: first.title,
@@ -114,15 +125,14 @@ final class MonthlyReportViewModel: ObservableObject {
                             playCount: group.count, duration: first.duration,
                             artworkURL: nil, isLocalAsset: first.isLocalAsset,
                             lastPlayedDate: group.first?.playedAt,
-                            genre: "", dateAdded: nil
+                            genre: libraryMap[id]?.genre ?? "",
+                            dateAdded: libraryMap[id]?.dateAdded
                         )
                     }
                 return Album(
-                    id: title,
-                    title: title,
+                    id: title, title: title,
                     artistName: entries.first?.artistName ?? "",
-                    artworkURL: nil,
-                    tracks: tracks
+                    artworkURL: nil, tracks: tracks
                 )
             }
             .sorted { $0.totalPlayCount > $1.totalPlayCount }
@@ -143,7 +153,6 @@ final class MonthlyReportViewModel: ObservableObject {
             comparison = (Double(history.count) - Double(prevHistory.count)) / Double(prevHistory.count) * 100
         }
 
-        // 日別再生数
         var dailyCounts: [Int: Int] = [:]
         var dailyEntries: [Int: [PlayHistoryEntry]] = [:]
         for entry in history {
@@ -152,7 +161,6 @@ final class MonthlyReportViewModel: ObservableObject {
             dailyEntries[day, default: []].append(entry)
         }
 
-        // 最も聴いた日
         let topDay: MonthlyReport.TopDay?
         if let (day, entries) = dailyEntries.max(by: { $0.value.count < $1.value.count }) {
             let trackCounts = Dictionary(grouping: entries, by: \.trackID)
@@ -165,7 +173,8 @@ final class MonthlyReportViewModel: ObservableObject {
                         playCount: list.count, duration: first.duration,
                         artworkURL: nil, isLocalAsset: first.isLocalAsset,
                         lastPlayedDate: list.first?.playedAt,
-                        genre: "", dateAdded: nil
+                        genre: libraryMap[id]?.genre ?? "",
+                        dateAdded: libraryMap[id]?.dateAdded
                     )
                 }
                 .max { $0.playCount < $1.playCount }
@@ -194,8 +203,6 @@ final class MonthlyReportViewModel: ObservableObject {
         )
     }
 
-    // MARK: - ジャンル
-
     private static let palette: [Color] = [
         .pink, .purple, .blue, .teal, .green,
         .yellow, .orange, .red, .indigo, .mint
@@ -222,8 +229,6 @@ final class MonthlyReportViewModel: ObservableObject {
             )
         }
     }
-
-    // MARK: - パーソナリティ
 
     private func calculatePersonality(history: [PlayHistoryEntry]) -> ListenerPersonality {
         guard !history.isEmpty else {
@@ -261,20 +266,10 @@ final class MonthlyReportViewModel: ObservableObject {
         let topArtistShare = Double(artistCounts.values.max() ?? 0) / Double(totalPlays)
 
         if topArtistShare > 0.4 {
-            return ListenerPersonality(
-                title: "推しが本気",
-                description: "1人のアーティストを愛し抜く一途なリスナー",
-                emoji: "💖",
-                gradient: [.pink, .red]
-            )
+            return ListenerPersonality(title: "推しが本気", description: "1人のアーティストを愛し抜く一途なリスナー", emoji: "💖", gradient: [.pink, .red])
         }
         if diversityRatio > 0.5 {
-            return ListenerPersonality(
-                title: "音楽探検家",
-                description: "新しい音楽を貪欲に探し続ける冒険者",
-                emoji: "🗺",
-                gradient: [.green, .teal]
-            )
+            return ListenerPersonality(title: "音楽探検家", description: "新しい音楽を貪欲に探し続ける冒険者", emoji: "🗺", gradient: [.green, .teal])
         }
 
         switch topTime {

@@ -7,10 +7,10 @@ import SwiftUI
 import Charts
 
 struct MonthlyReportView: View {
-    @StateObject private var viewModel = MonthlyReportViewModel()
+    @EnvironmentObject var viewModel: MonthlyReportViewModel
     @EnvironmentObject var libraryVM: LibraryViewModel
     @EnvironmentObject var artworkService: ArtworkService
-    @EnvironmentObject var historyTracker: PlayHistoryTracker  // ← 追加
+    @EnvironmentObject var historyTracker: PlayHistoryTracker
     @State private var showStory = false
 
     var body: some View {
@@ -40,7 +40,6 @@ struct MonthlyReportView: View {
             .onChange(of: viewModel.selectedYear) { _, _ in
                 viewModel.loadReport(libraryTracks: libraryVM.tracks)
             }
-            // ← 履歴同期完了時に再読込
             .onChange(of: historyTracker.lastSyncCompletedAt) { _, _ in
                 viewModel.loadReport(libraryTracks: libraryVM.tracks)
             }
