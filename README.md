@@ -9,7 +9,7 @@ SwiftUI と MusicKit を中心に構成した、
 **個人開発・ポートフォリオ目的のプロジェクト**です。
 
 <p align="center">
-  <img src="docs/images/app_icon.png" width="120" alt="App Icon">
+  <img src="MusicLibrary/Assets.xcassets/AppIcon.appiconset/appIcon.png" width="120" alt="App Icon">
 </p>
 
 ---
