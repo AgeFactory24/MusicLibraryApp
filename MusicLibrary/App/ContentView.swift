@@ -26,11 +26,8 @@ struct ContentView: View {
                     .environmentObject(monthlyVM)
                     .task {
                         await libraryVM.loadLibrary()
-                        rankingVM.buildRanking(
-                            from: libraryVM.tracks,
-                            artists: libraryVM.artists,
-                            albums: libraryVM.albums
-                        )
+                        rankingVM.buildRanking(libraryTracks: libraryVM.tracks)
+                        rankingVM.buildHomeRanking(libraryTracks: libraryVM.tracks)
                         statsVM.buildStats(
                             from: libraryVM.tracks,
                             artists: libraryVM.artists

@@ -24,7 +24,10 @@ struct HomeView: View {
                             .environmentObject(libraryVM)
                     }
 
-                    TopTracksSection(tracks: rankingVM.topTracks)
+                    TopTracksSection(
+                        tracks: rankingVM.homeTopTracks,
+                        period: $rankingVM.homeRankingPeriod
+                    )
 
                     TopArtistsSection(artists: rankingVM.topArtists)
                 }
@@ -32,6 +35,10 @@ struct HomeView: View {
             }
             .navigationTitle("MusicLibrary")
             .navigationBarTitleDisplayMode(.large)
+            .onChange(of: rankingVM.homeRankingPeriod) { _, _ in
+                Haptics.play(.light)
+                rankingVM.buildHomeRanking(libraryTracks: libraryVM.tracks)
+            }
         }
     }
 }
@@ -60,26 +67,51 @@ private struct SummarySection: View {
 
 private struct TopTracksSection: View {
     let tracks: [Track]
+    @Binding var period: RankingPeriod
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            SectionHeader(title: "再生回数TOP5")
-
-            VStack(spacing: 0) {
-                ForEach(Array(tracks.prefix(5).enumerated()), id: \.element.id) { index, track in
-                    NavigationLink {
-                        TrackDetailView(track: track)
-                    } label: {
-                        HomeRankingRow(rank: index + 1, track: track)
-                            .contentShape(Rectangle())
+            HStack(alignment: .center) {
+                Text("再生回数TOP5")
+                    .font(.title3.bold())
+                    .padding(.leading)
+                Spacer()
+                Picker("期間", selection: $period) {
+                    ForEach(RankingPeriod.allCases, id: \.self) { p in
+                        Text(p.rawValue).tag(p)
                     }
-                    .buttonStyle(.plain)
-                    if index < 4 { Divider().padding(.leading, 70) }
                 }
+                .pickerStyle(.menu)
+                .tint(.pink)
+                .padding(.trailing, 8)
             }
-            .background(Color(.secondarySystemBackground))
-            .clipShape(RoundedRectangle(cornerRadius: 12))
-            .padding(.horizontal)
+
+            if tracks.isEmpty {
+                Text("この期間の再生履歴がありません")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 24)
+                    .background(Color(.secondarySystemBackground))
+                    .clipShape(RoundedRectangle(cornerRadius: 12))
+                    .padding(.horizontal)
+            } else {
+                VStack(spacing: 0) {
+                    ForEach(Array(tracks.prefix(5).enumerated()), id: \.element.id) { index, track in
+                        NavigationLink {
+                            TrackDetailView(track: track)
+                        } label: {
+                            HomeRankingRow(rank: index + 1, track: track)
+                                .contentShape(Rectangle())
+                        }
+                        .buttonStyle(.plain)
+                        if index < 4 { Divider().padding(.leading, 70) }
+                    }
+                }
+                .background(Color(.secondarySystemBackground))
+                .clipShape(RoundedRectangle(cornerRadius: 12))
+                .padding(.horizontal)
+            }
         }
     }
 }

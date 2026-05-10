@@ -46,7 +46,7 @@ struct PersonalityIconSymbol: View {
         case .obsessedFan:     ObsessedFanIconLayer(size: size, phase: phase)
         case .singleFocus:     SingleFocusIconLayer(size: size, phase: phase)
         case .heavyRotator:    HeavyRotatorIconLayer(size: size, spin: spin)
-        case .explorer:        ExplorerIconLayer(size: size, phase: phase)
+        case .explorer:        ExplorerIconLayer(size: size, phase: phase, spin: spin)
         case .loyalListener:   LoyalListenerIconLayer(size: size, phase: phase)
         case .growingListener: GrowingListenerIconLayer(size: size, phase: phase)
         case .nostalgic:       NostalgicIconLayer(size: size, spin: spin)
@@ -69,58 +69,83 @@ private struct LegendIconLayer: View {
             let cx = sz.width / 2
             let cy = sz.height / 2
 
-            // 8本の光線
-            for i in 0..<8 {
-                let a = CGFloat(i) * .pi / 4
-                let r1: CGFloat = 22 * s, r2: CGFloat = 52 * s
+            // 16本の光芒（長短交互でより豪華に）
+            for i in 0..<16 {
+                let a = CGFloat(i) * .pi / 8 + CGFloat(phase * 0.3)
+                let r2: CGFloat = i % 2 == 0 ? 60 * s : 48 * s
+                let r1: CGFloat = 18 * s
+                let half: CGFloat = 0.07
                 var ray = Path()
-                ray.move(to: CGPoint(x: cx + cos(a - 0.10) * r1, y: cy + sin(a - 0.10) * r1))
+                ray.move(to: CGPoint(x: cx + cos(a - half) * r1, y: cy + sin(a - half) * r1))
                 ray.addLine(to: CGPoint(x: cx + cos(a) * r2, y: cy + sin(a) * r2))
-                ray.addLine(to: CGPoint(x: cx + cos(a + 0.10) * r1, y: cy + sin(a + 0.10) * r1))
+                ray.addLine(to: CGPoint(x: cx + cos(a + half) * r1, y: cy + sin(a + half) * r1))
                 ray.closeSubpath()
-                ctx.fill(ray, with: .color(.white.opacity(0.42)))
+                ctx.fill(ray, with: .color(.white.opacity(i % 2 == 0 ? 0.5 : 0.3)))
             }
 
-            // 王冠
-            let cY = cy - 12 * s
+            // 中心グロー
+            ctx.fill(ellipseRect(cx: cx, cy: cy, w: 44*s, h: 44*s),
+                     with: .color(.white.opacity(0.12)))
+
+            // 大きな王冠（中央寄り）
+            let cY = cy + 2 * s
             var crown = Path()
-            crown.move(to: CGPoint(x: cx - 22*s, y: cY + 8*s))
-            crown.addLine(to: CGPoint(x: cx - 22*s, y: cY - 2*s))
-            crown.addLine(to: CGPoint(x: cx - 14*s, y: cY + 4*s))
-            crown.addLine(to: CGPoint(x: cx - 7*s,  y: cY - 10*s))
-            crown.addLine(to: CGPoint(x: cx,         y: cY + 4*s))
-            crown.addLine(to: CGPoint(x: cx + 7*s,  y: cY - 10*s))
-            crown.addLine(to: CGPoint(x: cx + 14*s, y: cY + 4*s))
-            crown.addLine(to: CGPoint(x: cx + 22*s, y: cY - 2*s))
-            crown.addLine(to: CGPoint(x: cx + 22*s, y: cY + 8*s))
+            crown.move(to: CGPoint(x: cx - 30*s, y: cY + 12*s))
+            crown.addLine(to: CGPoint(x: cx - 30*s, y: cY - 2*s))
+            crown.addLine(to: CGPoint(x: cx - 18*s, y: cY + 6*s))
+            crown.addLine(to: CGPoint(x: cx - 10*s, y: cY - 17*s))
+            crown.addLine(to: CGPoint(x: cx,         y: cY + 5*s))
+            crown.addLine(to: CGPoint(x: cx + 10*s, y: cY - 17*s))
+            crown.addLine(to: CGPoint(x: cx + 18*s, y: cY + 6*s))
+            crown.addLine(to: CGPoint(x: cx + 30*s, y: cY - 2*s))
+            crown.addLine(to: CGPoint(x: cx + 30*s, y: cY + 12*s))
             crown.closeSubpath()
-            ctx.fill(crown, with: .color(.white))
+            ctx.fill(crown, with: .color(.white.opacity(0.95)))
+            // 王冠のゴールドアウトライン
+            ctx.stroke(crown, with: .color(Color(red:1,green:0.88,blue:0.25).opacity(0.7)), lineWidth: 1.8*s)
 
-            // 宝石 x3
-            let jewY = cY - 4 * s
-            for jx in [CGFloat(-7), 0, 7] {
-                ctx.fill(ellipseRect(cx: cx + jx*s, cy: jewY, w: 5*s, h: 5*s),
-                         with: .color(Color(red:1,green:0.9,blue:0.3)))
+            // 王冠ベースバー
+            ctx.fill(roundedRect(cx: cx, cy: cY + 16*s, w: 60*s, h: 9*s, r: 4*s),
+                     with: .color(.white.opacity(0.88)))
+
+            // 宝石 x5（王冠の頂点と中間）
+            let jewConfigs: [(CGFloat, CGFloat)] = [(-10, -4), (0, -6), (10, -4), (-22, 4), (22, 4)]
+            let jewColors: [Color] = [
+                Color(red:1, green:0.85, blue:0.2),
+                Color(red:1, green:0.95, blue:0.4),
+                Color(red:1, green:0.85, blue:0.2),
+                Color(red:0.4, green:0.85, blue:1),
+                Color(red:1, green:0.4, blue:0.6)
+            ]
+            for ((jx, dy), jColor) in zip(jewConfigs, jewColors) {
+                let jSize: CGFloat = jx == 0 ? 8 : 6
+                ctx.fill(ellipseRect(cx: cx + jx*s, cy: cY + dy*s, w: jSize*s, h: jSize*s),
+                         with: .color(jColor.opacity(0.95)))
             }
 
-            // レコードディスク
-            let dY = cy + 22 * s, dR = 18 * s
-            ctx.fill(ellipseRect(cx: cx, cy: dY, w: dR*2, h: dR*2),
-                     with: .color(.black.opacity(0.3)))
-            for r in [dR*0.75, dR*0.55] {
-                ctx.stroke(ellipseRect(cx: cx, cy: dY, w: r*2, h: r*2),
-                           with: .color(.white.opacity(0.45)), lineWidth: 1.4*s)
-            }
-            let lR = dR * 0.30
-            ctx.fill(ellipseRect(cx: cx, cy: dY, w: lR*2, h: lR*2),
-                     with: .color(.white.opacity(0.75)))
-            ctx.fill(ellipseRect(cx: cx, cy: dY, w: 4.5*s, h: 4.5*s),
-                     with: .color(.black.opacity(0.5)))
+            // 王冠の上に大きな5角星（脈打つ）
+            let starY = cY - 36 * s
+            let sOp = 0.7 + phase * 0.3
+            let starOuter = (18.0 + phase * 4.0) * s
+            let starInner = (8.0 + phase * 1.5) * s
+            drawStar5(&ctx, cx: cx, cy: starY, outerR: starOuter, innerR: starInner, opacity: sOp)
+            // 星のグロー
+            ctx.fill(ellipseRect(cx: cx, cy: starY, w: (28 + phase * 8)*s, h: (28 + phase * 8)*s),
+                     with: .color(.white.opacity(0.12 + phase * 0.1)))
 
-            // スパークル x4 (点滅)
-            let sOp = 0.45 + phase * 0.55
-            for (dx, dy) in [(-32.0, -34.0), (32.0, -34.0), (-33.0, 28.0), (33.0, 28.0)] {
-                drawSparkle(&ctx, x: cx + CGFloat(dx)*s, y: cy + CGFloat(dy)*s, r: 5.5*s, opacity: sOp)
+            // 角スパークル x5（位相をずらして点滅）
+            let sparkPos: [(CGFloat, CGFloat, CGFloat)] = [
+                (-40, -35, 6), (40, -35, 6), (-42, 18, 4.5), (42, 18, 4.5), (0, 38, 5)
+            ]
+            let sparkOps: [Double] = [
+                0.3 + 0.7 * phase,
+                0.9 - 0.6 * phase,
+                0.2 + 0.8 * (1 - phase),
+                0.5 + 0.5 * phase,
+                0.8 - 0.5 * phase
+            ]
+            for (i, (dx, dy, r)) in sparkPos.enumerated() {
+                drawSparkle(&ctx, x: cx + dx*s, y: cy + dy*s, r: r*s, opacity: sparkOps[i])
             }
         }
     }
@@ -137,22 +162,26 @@ private struct ObsessedFanIconLayer: View {
             let cx = sz.width / 2
             let cy = sz.height / 2
 
-            // 放射グロー
-            let glowRings: [(CGFloat, Double)] = [(50, 0.12), (38, 0.18), (26, 0.22)]
+            // ドキドキ（2拍動）: phase 0→1 中に2回ピーク
+            let beat = abs(sin(phase * .pi * 2))
+
+            // 放射グロー（鼓動に合わせて拡縮）
+            let glowScale = 1.0 + CGFloat(beat) * 0.18
+            let glowRings: [(CGFloat, Double)] = [(50, 0.10), (38, 0.16), (26, 0.20)]
             for (r, op) in glowRings {
-                ctx.fill(ellipseRect(cx: cx, cy: cy, w: r*s*2, h: r*s*2),
-                         with: .color(.white.opacity(op)))
+                ctx.fill(ellipseRect(cx: cx, cy: cy, w: r*s*glowScale*2, h: r*s*glowScale*2),
+                         with: .color(.white.opacity(op + beat * 0.06)))
             }
 
-            // ハート（アニメーション拡縮）
-            let hr = CGFloat(34 + phase * 6) * s
+            // ハート（鼓動に合わせて拡縮）
+            let hr = (34.0 + beat * 9.0) * s
             ctx.fill(heartPath(cx: cx, cy: cy + 2*s, r: hr),
                      with: .color(.white.opacity(0.92)))
             ctx.fill(heartPath(cx: cx, cy: cy + 2*s, r: hr * 0.65),
                      with: .color(.pink.opacity(0.55)))
 
-            // スパークル x3
-            let sOp = 0.55 + phase * 0.45
+            // スパークル x3（鼓動に合わせて輝く）
+            let sOp = 0.4 + beat * 0.6
             drawSparkle(&ctx, x: cx - 30*s, y: cy - 26*s, r: 5.5*s, opacity: sOp)
             drawSparkle(&ctx, x: cx + 30*s, y: cy - 26*s, r: 4.5*s, opacity: sOp * 0.85)
             drawSparkle(&ctx, x: cx + 33*s, y: cy + 12*s, r: 3.5*s, opacity: sOp * 0.7)
@@ -178,9 +207,13 @@ private struct SingleFocusIconLayer: View {
                          with: .color(.white.opacity(op)))
             }
 
-            // 矢（右上から中心へ）
-            let arrowEnd = CGPoint(x: cx + 3*s, y: cy + 3*s)
-            let arrowStart = CGPoint(x: cx + 38*s, y: cy - 38*s)
+            // 矢（右上から中心へ突き刺さる動き）
+            let t = CGFloat(phase)
+            let tipTarget = CGPoint(x: cx + 3*s, y: cy + 3*s)
+            let tipFar    = CGPoint(x: cx + 55*s, y: cy - 55*s)
+            let arrowEnd  = CGPoint(x: tipFar.x + (tipTarget.x - tipFar.x) * t,
+                                    y: tipFar.y + (tipTarget.y - tipFar.y) * t)
+            let arrowStart = CGPoint(x: cx + 60*s, y: cy - 60*s)
             var shaft = Path()
             shaft.move(to: arrowStart)
             shaft.addLine(to: arrowEnd)
@@ -250,16 +283,19 @@ private struct HeavyRotatorIconLayer: View {
             botTip.closeSubpath()
             ctx.fill(botTip, with: .color(.white.opacity(0.9)))
 
-            // 中央音符
-            drawMusicNote(&ctx, cx: cx - 4*s, cy: cy - 4*s, s: s * 0.85, opacity: 0.95)
+            // 中央音符（ループの中心に正しく配置）
+            drawMusicNote(&ctx, cx: cx, cy: cy - 2*s, s: s * 0.92, opacity: 0.97)
 
-            // ∞記号（下部）
-            let infY = cy + 40 * s
-            let inf = 10 * s
-            ctx.stroke(Path(ellipseIn: CGRect(x: cx - inf*2, y: infY - inf*0.55, width: inf*1.1, height: inf*1.1)),
-                       with: .color(.white.opacity(0.7)), lineWidth: 2.8*s)
-            ctx.stroke(Path(ellipseIn: CGRect(x: cx + inf*0.9, y: infY - inf*0.55, width: inf*1.1, height: inf*1.1)),
-                       with: .color(.white.opacity(0.7)), lineWidth: 2.8*s)
+            // ∞記号（下部・2円が重なるよう修正）
+            let infY = cy + 38 * s
+            let infR = 10 * s
+            let infGap = 9 * s
+            ctx.stroke(Path(ellipseIn: CGRect(x: cx - infGap - infR, y: infY - infR,
+                                               width: infR*2, height: infR*2)),
+                       with: .color(.white.opacity(0.72)), lineWidth: 2.8*s)
+            ctx.stroke(Path(ellipseIn: CGRect(x: cx + infGap - infR, y: infY - infR,
+                                               width: infR*2, height: infR*2)),
+                       with: .color(.white.opacity(0.72)), lineWidth: 2.8*s)
         }
         .rotationEffect(.degrees(spin * 0.5))
     }
@@ -270,50 +306,58 @@ private struct HeavyRotatorIconLayer: View {
 private struct ExplorerIconLayer: View {
     let size: CGFloat
     let phase: Double
+    let spin: Double
     var body: some View {
-        Canvas { ctx, sz in
-            let s = sz.width / 140
-            let cx = sz.width / 2
-            let cy = sz.height / 2
+        ZStack {
+            // 外枠リングと方位ドット（回転する）
+            Canvas { ctx, sz in
+                let s = sz.width / 140
+                let cx = sz.width / 2
+                let cy = sz.height / 2
 
-            // 外側2リング
-            ctx.stroke(ellipseRect(cx: cx, cy: cy, w: 90*s, h: 90*s),
-                       with: .color(.white.opacity(0.35)), lineWidth: 1.8*s)
-            ctx.stroke(ellipseRect(cx: cx, cy: cy, w: 70*s, h: 70*s),
-                       with: .color(.white.opacity(0.25)), lineWidth: 1.2*s)
+                ctx.stroke(ellipseRect(cx: cx, cy: cy, w: 90*s, h: 90*s),
+                           with: .color(.white.opacity(0.35)), lineWidth: 1.8*s)
+                ctx.stroke(ellipseRect(cx: cx, cy: cy, w: 70*s, h: 70*s),
+                           with: .color(.white.opacity(0.25)), lineWidth: 1.2*s)
 
-            // 4方位ドット (N/S/E/W)
-            let dirDots: [(CGFloat, CGFloat, Double)] = [(0, -38, 1.0), (0, 38, 0.5), (-38, 0, 0.7), (38, 0, 0.7)]
-            for (dx, dy, op) in dirDots {
-                ctx.fill(ellipseRect(cx: cx+dx*s, cy: cy+dy*s, w: 6*s, h: 6*s),
-                         with: .color(.white.opacity(op)))
+                let dirDots: [(CGFloat, CGFloat, Double)] = [(0, -38, 1.0), (0, 38, 0.5), (-38, 0, 0.7), (38, 0, 0.7)]
+                for (dx, dy, op) in dirDots {
+                    ctx.fill(ellipseRect(cx: cx+dx*s, cy: cy+dy*s, w: 6*s, h: 6*s),
+                             with: .color(.white.opacity(op)))
+                }
             }
+            .rotationEffect(.degrees(spin * 0.5))
 
-            // コンパス針（ダイヤモンド形、N=白、S=薄）
-            var needle = Path()
-            needle.move(to: CGPoint(x: cx, y: cy - 28*s))         // North tip
-            needle.addLine(to: CGPoint(x: cx + 7*s, y: cy))
-            needle.addLine(to: CGPoint(x: cx, y: cy + 20*s))      // South tip
-            needle.addLine(to: CGPoint(x: cx - 7*s, y: cy))
-            needle.closeSubpath()
-            ctx.fill(needle, with: .color(.white.opacity(0.9)))
+            // 針・ピン・音符（静止）
+            Canvas { ctx, sz in
+                let s = sz.width / 140
+                let cx = sz.width / 2
+                let cy = sz.height / 2
 
-            var needleS = Path()
-            needleS.move(to: CGPoint(x: cx, y: cy + 20*s))
-            needleS.addLine(to: CGPoint(x: cx + 7*s, y: cy))
-            needleS.addLine(to: CGPoint(x: cx, y: cy - 28*s))
-            needleS.addLine(to: CGPoint(x: cx - 7*s, y: cy))
-            needleS.closeSubpath()
-            ctx.fill(needleS, with: .color(.black.opacity(0.25)))
+                var needle = Path()
+                needle.move(to: CGPoint(x: cx, y: cy - 28*s))
+                needle.addLine(to: CGPoint(x: cx + 7*s, y: cy))
+                needle.addLine(to: CGPoint(x: cx, y: cy + 20*s))
+                needle.addLine(to: CGPoint(x: cx - 7*s, y: cy))
+                needle.closeSubpath()
+                ctx.fill(needle, with: .color(.white.opacity(0.9)))
 
-            // 中央ピン
-            ctx.fill(ellipseRect(cx: cx, cy: cy, w: 7*s, h: 7*s),
-                     with: .color(.white))
+                var needleS = Path()
+                needleS.move(to: CGPoint(x: cx, y: cy + 20*s))
+                needleS.addLine(to: CGPoint(x: cx + 7*s, y: cy))
+                needleS.addLine(to: CGPoint(x: cx, y: cy - 28*s))
+                needleS.addLine(to: CGPoint(x: cx - 7*s, y: cy))
+                needleS.closeSubpath()
+                ctx.fill(needleS, with: .color(.black.opacity(0.25)))
 
-            // 音符（右上・左下、フェード）
-            let nOp = 0.5 + phase * 0.4
-            drawMusicNote(&ctx, cx: cx + 30*s, cy: cy - 28*s, s: s * 0.7, opacity: nOp)
-            drawMusicNote(&ctx, cx: cx - 30*s, cy: cy + 24*s, s: s * 0.55, opacity: nOp * 0.7)
+                ctx.fill(ellipseRect(cx: cx, cy: cy, w: 7*s, h: 7*s), with: .color(.white))
+
+                // 音符（浮遊）
+                let nOp = 0.55 + phase * 0.4
+                let floatY = CGFloat(sin(phase * .pi)) * 5 * s
+                drawMusicNote(&ctx, cx: cx + 28*s, cy: cy - 25*s - floatY, s: s * 1.15, opacity: nOp)
+                drawMusicNote(&ctx, cx: cx - 28*s, cy: cy + 22*s + floatY * 0.7, s: s * 0.95, opacity: nOp * 0.75)
+            }
         }
     }
 }
@@ -329,19 +373,31 @@ private struct LoyalListenerIconLayer: View {
             let cx = sz.width / 2
             let cy = sz.height / 2
 
-            // シールド
+            // 衝撃波リング（どどーん：外側へ拡大しながら消える）
+            let shockDefs: [(Double, Double)] = [(0.0, 1.0), (0.2, 0.8), (0.4, 0.6)]
+            for (delay, maxOp) in shockDefs {
+                let t = max(0.0, phase - delay) / (1.0 - delay)
+                guard t > 0 else { continue }
+                let r = (22 + CGFloat(t) * 44) * s
+                let op = maxOp * (1 - t) * 0.85
+                ctx.stroke(ellipseRect(cx: cx, cy: cy, w: r*2, h: r*2),
+                           with: .color(.white.opacity(op)), lineWidth: 3.5*s)
+            }
+
+            // シールド（衝撃に合わせてわずかに拡大）
+            let p = CGFloat(sin(phase * .pi)) * 4 * s
             var shield = Path()
-            shield.move(to: CGPoint(x: cx, y: cy + 46*s))
-            shield.addCurve(to: CGPoint(x: cx - 34*s, y: cy - 10*s),
-                            control1: CGPoint(x: cx - 34*s, y: cy + 34*s),
-                            control2: CGPoint(x: cx - 34*s, y: cy + 4*s))
-            shield.addLine(to: CGPoint(x: cx - 34*s, y: cy - 34*s))
-            shield.addLine(to: CGPoint(x: cx, y: cy - 42*s))
-            shield.addLine(to: CGPoint(x: cx + 34*s, y: cy - 34*s))
-            shield.addLine(to: CGPoint(x: cx + 34*s, y: cy - 10*s))
-            shield.addCurve(to: CGPoint(x: cx, y: cy + 46*s),
-                            control1: CGPoint(x: cx + 34*s, y: cy + 4*s),
-                            control2: CGPoint(x: cx + 34*s, y: cy + 34*s))
+            shield.move(to: CGPoint(x: cx, y: cy + 46*s + p))
+            shield.addCurve(to: CGPoint(x: cx - 34*s - p, y: cy - 10*s),
+                            control1: CGPoint(x: cx - 34*s - p, y: cy + 34*s),
+                            control2: CGPoint(x: cx - 34*s - p, y: cy + 4*s))
+            shield.addLine(to: CGPoint(x: cx - 34*s - p, y: cy - 34*s))
+            shield.addLine(to: CGPoint(x: cx, y: cy - 42*s - p))
+            shield.addLine(to: CGPoint(x: cx + 34*s + p, y: cy - 34*s))
+            shield.addLine(to: CGPoint(x: cx + 34*s + p, y: cy - 10*s))
+            shield.addCurve(to: CGPoint(x: cx, y: cy + 46*s + p),
+                            control1: CGPoint(x: cx + 34*s + p, y: cy + 4*s),
+                            control2: CGPoint(x: cx + 34*s + p, y: cy + 34*s))
             ctx.fill(shield, with: .color(.white.opacity(0.25)))
             ctx.stroke(shield, with: .color(.white.opacity(0.8)), lineWidth: 3.5*s)
 
@@ -512,10 +568,12 @@ private struct GenreAddictIconLayer: View {
                 cg.strokePath()
             }
 
-            // 音符 (右側)
+            // 音符 (右側・浮遊)
             let nOp = 0.65 + phase * 0.35
-            drawMusicNote(&ctx, cx: cx + 28*s, cy: staffTop + 4*s, s: s * 0.9, opacity: nOp)
-            drawMusicNote(&ctx, cx: cx + 36*s, cy: staffTop + 22*s, s: s * 0.75, opacity: nOp * 0.8)
+            let float1 = CGFloat(sin(phase * .pi)) * 10 * s
+            let float2 = CGFloat(sin(phase * .pi + 0.7)) * 8 * s
+            drawMusicNote(&ctx, cx: cx + 28*s, cy: staffTop + 4*s - float1, s: s * 0.9, opacity: nOp)
+            drawMusicNote(&ctx, cx: cx + 36*s, cy: staffTop + 22*s - float2, s: s * 0.75, opacity: nOp * 0.8)
         }
     }
 }
@@ -546,7 +604,7 @@ private struct BalancedIconLayer: View {
             ctx.fill(base, with: .color(.white.opacity(0.7)))
 
             // 水平ビーム（少し傾ける）
-            let tilt = CGFloat(phase - 0.5) * 10 * s
+            let tilt = CGFloat(phase - 0.5) * 20 * s
             var beam = Path()
             beam.move(to: CGPoint(x: cx - 42*s, y: cy - 34*s + tilt))
             beam.addLine(to: CGPoint(x: cx + 42*s, y: cy - 34*s - tilt))
@@ -639,43 +697,87 @@ private struct StreamingFanIconLayer: View {
             let cx = sz.width / 2
             let cy = sz.height / 2
 
-            // 地球儀外輪
-            let gR = 36 * s
-            ctx.stroke(ellipseRect(cx: cx, cy: cy, w: gR*2, h: gR*2),
-                       with: .color(.white.opacity(0.8)), lineWidth: 2.5*s)
+            // 背景グロー
+            ctx.fill(ellipseRect(cx: cx, cy: cy - 2*s, w: 72*s, h: 72*s),
+                     with: .color(.white.opacity(0.08 + phase * 0.04)))
 
-            // 経線（楕円）x3
-            for wR: CGFloat in [16, 28, 36] {
-                ctx.stroke(ellipseRect(cx: cx, cy: cy, w: wR*s*2, h: gR*2),
-                           with: .color(.white.opacity(0.4)), lineWidth: 1.5*s)
-            }
-            // 緯線 x2
-            for (dy, wR): (CGFloat, CGFloat) in [(-14, 32), (14, 32)] {
-                ctx.stroke(ellipseRect(cx: cx, cy: cy + dy*s, w: wR*s*2, h: wR*s*0.5),
-                           with: .color(.white.opacity(0.35)), lineWidth: 1.5*s)
-            }
+            // ── Apple ロゴ（上から落下） ──
+            let t = CGFloat(phase)
+            let appleDropY = -(1 - t) * (1 - t) * 62 * s  // 二乗落下: phase=0で-62s上、phase=1で0
+            var appleCtx = ctx
+            appleCtx.translateBy(x: 0, y: appleDropY)
 
-            // WiFiアーク x3（右上）
-            let wfX = cx + 18 * s, wfY = cy - 30 * s
-            let wfOp = 0.55 + phase * 0.45
+            let bw: CGFloat = 22 * s
+            let bh: CGFloat = 27 * s
+
+            var apple = Path()
+            // ステム付け根（上中央やや左）からスタート
+            apple.move(to: CGPoint(x: cx - bw * 0.1, y: cy - bh * 0.78))
+            // 左アーチ（上 → 左最大 → 左下）
+            apple.addCurve(
+                to: CGPoint(x: cx - bw, y: cy - bh * 0.05),
+                control1: CGPoint(x: cx - bw * 0.38, y: cy - bh * 0.98),
+                control2: CGPoint(x: cx - bw * 1.15, y: cy - bh * 0.58)
+            )
+            // 左下カーブ → 底
+            apple.addCurve(
+                to: CGPoint(x: cx, y: cy + bh),
+                control1: CGPoint(x: cx - bw * 1.15, y: cy + bh * 0.42),
+                control2: CGPoint(x: cx - bw * 0.32, y: cy + bh * 1.0)
+            )
+            // 底 → 右下カーブ
+            apple.addCurve(
+                to: CGPoint(x: cx + bw, y: cy - bh * 0.05),
+                control1: CGPoint(x: cx + bw * 0.32, y: cy + bh * 1.0),
+                control2: CGPoint(x: cx + bw * 1.15, y: cy + bh * 0.42)
+            )
+            // 右アーチ → バイト開始点
+            apple.addCurve(
+                to: CGPoint(x: cx + bw * 0.28, y: cy - bh * 0.74),
+                control1: CGPoint(x: cx + bw * 1.15, y: cy - bh * 0.58),
+                control2: CGPoint(x: cx + bw * 0.58, y: cy - bh * 0.92)
+            )
+            // バイト（くぼみ）→ スタートに戻る
+            apple.addCurve(
+                to: CGPoint(x: cx - bw * 0.1, y: cy - bh * 0.78),
+                control1: CGPoint(x: cx + bw * 0.12, y: cy - bh * 0.56),
+                control2: CGPoint(x: cx + bw * 0.02, y: cy - bh * 0.78)
+            )
+            apple.closeSubpath()
+            appleCtx.fill(apple, with: .color(.white.opacity(0.93)))
+
+            // ステム（右上方向に流れるカーブ）
+            var stem = Path()
+            stem.move(to: CGPoint(x: cx - bw * 0.05, y: cy - bh * 0.78))
+            stem.addCurve(
+                to: CGPoint(x: cx + bw * 0.52, y: cy - bh * 1.3),
+                control1: CGPoint(x: cx + bw * 0.1,  y: cy - bh * 0.86),
+                control2: CGPoint(x: cx + bw * 0.32, y: cy - bh * 1.1)
+            )
+            appleCtx.stroke(stem, with: .color(.white.opacity(0.88)), lineWidth: 2.8 * s)
+            // ── Apple ロゴ ここまで ──
+
+            // 右下：音符（装飾）
+            let nOp = 0.4 + phase * 0.38
+            drawMusicNote(&ctx, cx: cx + 34*s, cy: cy + 28*s, s: s * 0.85, opacity: nOp)
+
+            // 左上：WiFiアーク（装飾）
+            let wfOp = 0.38 + phase * 0.38
             ctx.withCGContext { cg in
-                cg.setStrokeColor(UIColor.white.withAlphaComponent(wfOp).cgColor)
                 cg.setLineCap(.round)
-                let wfArcs: [(CGFloat, CGFloat)] = [(14, 3.5), (22, 3), (30, 2.5)]
-                for (r, lw) in wfArcs {
+                let wfX = cx - 32 * s, wfY = cy - 28 * s
+                for (r, lw): (CGFloat, CGFloat) in [(9, 2.8), (15, 2.2), (21, 1.8)] {
+                    cg.setStrokeColor(UIColor.white.withAlphaComponent(wfOp).cgColor)
                     cg.setLineWidth(lw * s)
                     cg.addArc(center: CGPoint(x: wfX, y: wfY + r * 0.5),
-                              radius: r * s, startAngle: -.pi * 0.75, endAngle: -.pi * 0.25, clockwise: false)
+                              radius: r * s, startAngle: -.pi * 0.75, endAngle: -.pi * 0.25,
+                              clockwise: false)
                     cg.strokePath()
                 }
-                // ドット
                 cg.setFillColor(UIColor.white.withAlphaComponent(wfOp).cgColor)
-                cg.addEllipse(in: CGRect(x: wfX - 3*s, y: wfY + 14*s*0.5 - 3*s, width: 6*s, height: 6*s))
+                cg.addEllipse(in: CGRect(x: wfX - 2.5*s, y: wfY + 9*s*0.5 - 2.5*s, width: 5*s, height: 5*s))
                 cg.fillPath()
             }
-
-            // 音符（左下）
-            drawMusicNote(&ctx, cx: cx - 22*s, cy: cy + 22*s, s: s * 0.85, opacity: 0.85)
         }
     }
 }
@@ -708,20 +810,32 @@ private func trianglePath(cx: CGFloat, tipY: CGFloat, w: CGFloat, h: CGFloat) ->
 
 private func heartPath(cx: CGFloat, cy: CGFloat, r: CGFloat) -> Path {
     var p = Path()
-    let bot = CGPoint(x: cx, y: cy + r * 0.72)
-    p.move(to: bot)
-    p.addCurve(to: CGPoint(x: cx - r, y: cy - r * 0.1),
-               control1: CGPoint(x: cx - r * 0.35, y: cy + r * 0.55),
-               control2: CGPoint(x: cx - r * 1.05, y: cy + r * 0.3))
-    p.addCurve(to: CGPoint(x: cx, y: cy - r * 0.38),
-               control1: CGPoint(x: cx - r, y: cy - r * 0.55),
-               control2: CGPoint(x: cx - r * 0.45, y: cy - r * 0.65))
-    p.addCurve(to: CGPoint(x: cx + r, y: cy - r * 0.1),
-               control1: CGPoint(x: cx + r * 0.45, y: cy - r * 0.65),
-               control2: CGPoint(x: cx + r, y: cy - r * 0.55))
-    p.addCurve(to: bot,
-               control1: CGPoint(x: cx + r * 1.05, y: cy + r * 0.3),
-               control2: CGPoint(x: cx + r * 0.35, y: cy + r * 0.55))
+    let tip = CGPoint(x: cx, y: cy + r * 0.85)
+    p.move(to: tip)
+    // 底尖 → 左バンプ
+    p.addCurve(
+        to: CGPoint(x: cx - r * 0.9, y: cy - r * 0.35),
+        control1: CGPoint(x: cx - r * 0.3, y: cy + r * 0.65),
+        control2: CGPoint(x: cx - r * 1.1, y: cy + r * 0.15)
+    )
+    // 左バンプ → 中央くぼみ
+    p.addCurve(
+        to: CGPoint(x: cx, y: cy - r * 0.15),
+        control1: CGPoint(x: cx - r * 0.9, y: cy - r * 0.8),
+        control2: CGPoint(x: cx - r * 0.35, y: cy - r * 0.82)
+    )
+    // 中央くぼみ → 右バンプ
+    p.addCurve(
+        to: CGPoint(x: cx + r * 0.9, y: cy - r * 0.35),
+        control1: CGPoint(x: cx + r * 0.35, y: cy - r * 0.82),
+        control2: CGPoint(x: cx + r * 0.9, y: cy - r * 0.8)
+    )
+    // 右バンプ → 底尖
+    p.addCurve(
+        to: tip,
+        control1: CGPoint(x: cx + r * 1.1, y: cy + r * 0.15),
+        control2: CGPoint(x: cx + r * 0.3, y: cy + r * 0.65)
+    )
     p.closeSubpath()
     return p
 }
@@ -764,22 +878,38 @@ private func drawSparkle(_ ctx: inout GraphicsContext,
 private func drawMusicNote(_ ctx: inout GraphicsContext,
                             cx: CGFloat, cy: CGFloat, s: CGFloat, opacity: Double) {
     let color = GraphicsContext.Shading.color(.white.opacity(opacity))
-    // 音符の玉
     let noteR = 5.5 * s
-    ctx.fill(ellipseRect(cx: cx, cy: cy + 2*s, w: noteR*2, h: noteR*1.6),
-             with: color)
+    // 音符頭（楕円）
+    ctx.fill(ellipseRect(cx: cx, cy: cy + 2*s, w: noteR*2, h: noteR*1.6), with: color)
     // ステム
+    let stemX = cx + noteR * 0.85
     var stem = Path()
-    stem.move(to: CGPoint(x: cx + noteR * 0.85, y: cy + 2*s - noteR * 0.6))
-    stem.addLine(to: CGPoint(x: cx + noteR * 0.85, y: cy - 14*s))
+    stem.move(to: CGPoint(x: stemX, y: cy + 2*s - noteR * 0.5))
+    stem.addLine(to: CGPoint(x: stemX, y: cy - 14*s))
     ctx.stroke(stem, with: color, lineWidth: 2.2*s)
-    // フラッグ
+    // フラッグ（右方向へ流れる曲線）
     var flag = Path()
-    flag.move(to: CGPoint(x: cx + noteR * 0.85, y: cy - 14*s))
-    flag.addCurve(to: CGPoint(x: cx + noteR * 0.85, y: cy - 6*s),
-                  control1: CGPoint(x: cx + noteR * 0.85 + 10*s, y: cy - 12*s),
-                  control2: CGPoint(x: cx + noteR * 0.85 + 8*s, y: cy - 8*s))
+    flag.move(to: CGPoint(x: stemX, y: cy - 14*s))
+    flag.addCurve(to: CGPoint(x: stemX + 8*s, y: cy - 5*s),
+                  control1: CGPoint(x: stemX + 11*s, y: cy - 13*s),
+                  control2: CGPoint(x: stemX + 11*s, y: cy - 8*s))
     ctx.stroke(flag, with: color, lineWidth: 2*s)
+}
+
+// MARK: - ヘルパー: 5角星
+
+private func drawStar5(_ ctx: inout GraphicsContext,
+                        cx: CGFloat, cy: CGFloat, outerR: CGFloat, innerR: CGFloat,
+                        opacity: Double) {
+    var p = Path()
+    for i in 0..<10 {
+        let angle = CGFloat(i) * .pi / 5 - .pi / 2
+        let r = i % 2 == 0 ? outerR : innerR
+        let pt = CGPoint(x: cx + cos(angle) * r, y: cy + sin(angle) * r)
+        if i == 0 { p.move(to: pt) } else { p.addLine(to: pt) }
+    }
+    p.closeSubpath()
+    ctx.fill(p, with: .color(.white.opacity(opacity)))
 }
 
 // MARK: - PersonalityBadgeView（後方互換：ListenerPersonality → PersonalityIconSymbol）

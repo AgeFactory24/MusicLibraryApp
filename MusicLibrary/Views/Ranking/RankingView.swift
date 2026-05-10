@@ -108,11 +108,7 @@ struct RankingView: View {
                 }
             }
             .onChange(of: rankingVM.rankingPeriod) { _, _ in
-                rankingVM.buildRanking(
-                    from: libraryVM.tracks,
-                    artists: libraryVM.artists,
-                    albums: libraryVM.albums
-                )
+                rankingVM.buildRanking(libraryTracks: libraryVM.tracks)
             }
         }
     }
