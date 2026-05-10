@@ -9,11 +9,18 @@ struct HomeView: View {
     @EnvironmentObject var libraryVM: LibraryViewModel
     @EnvironmentObject var rankingVM: RankingViewModel
     @EnvironmentObject var statsVM: StatisticsViewModel
+    @EnvironmentObject var historyTracker: PlayHistoryTracker
 
     var body: some View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 24) {
+
+                    SyncStatusView(
+                        lastSyncDate: historyTracker.lastSyncCompletedAt,
+                        accuracyLevel: historyTracker.historyAccuracyLevel
+                    )
+                    .padding(.top, 4)
 
                     if let stats = statsVM.stats {
                         SummarySection(stats: stats)

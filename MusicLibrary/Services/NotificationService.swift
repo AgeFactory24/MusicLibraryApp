@@ -164,6 +164,48 @@ final class NotificationService: ObservableObject {
             .removePendingNotificationRequests(withIdentifiers: [kind.rawValue])
     }
 
+    // MARK: - 起動誘導通知（同期精度向上目的）
+
+    static func scheduleEngagementIfNeeded() {
+        Task { @MainActor in
+            let center = UNUserNotificationCenter.current()
+            let settings = await center.notificationSettings()
+            guard settings.authorizationStatus == .authorized else { return }
+
+            let lastOpenTs = UserDefaults.standard.double(forKey: "MusicLibrary.LastAppOpen")
+            guard lastOpenTs > 0,
+                  Date().timeIntervalSince(Date(timeIntervalSince1970: lastOpenTs)) > 48 * 3600 else { return }
+
+            guard UserDefaults.standard.integer(forKey: PlayHistoryTracker.lastSyncNewHistoryKey) > 0 else { return }
+
+            let lastEngagementTs = UserDefaults.standard.double(forKey: "MusicLibrary.LastEngagementNotification")
+            if lastEngagementTs > 0,
+               Date().timeIntervalSince(Date(timeIntervalSince1970: lastEngagementTs)) < 72 * 3600 { return }
+
+            UserDefaults.standard.set(Date().timeIntervalSince1970, forKey: "MusicLibrary.LastEngagementNotification")
+
+            let messages: [(String, String)] = [
+                ("今週のTOP楽曲が更新されました", "アプリを開いて最新のランキングを確認しよう"),
+                ("新しい音楽パーソナリティが判定されました", "最近のリスニング傾向をチェックしよう"),
+                ("月別レポートが更新されています", "先月の音楽履歴を振り返ってみよう")
+            ]
+            let picked = messages[Int(Date().timeIntervalSince1970 / 86400) % messages.count]
+
+            let content = UNMutableNotificationContent()
+            content.title = picked.0
+            content.body = picked.1
+            content.sound = .default
+            content.userInfo = ["destination": "home", "kind": "engagement"]
+
+            let request = UNNotificationRequest(
+                identifier: "engagement_sync",
+                content: content,
+                trigger: UNTimeIntervalNotificationTrigger(timeInterval: 1, repeats: false)
+            )
+            try? await center.add(request)
+        }
+    }
+
     // MARK: - UserDefaults
 
     private func saveEnabled() {

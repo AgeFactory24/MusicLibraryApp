@@ -17,7 +17,7 @@ final class BackgroundSyncManager {
     /// バックグラウンドタスクID（Info.plistにも登録が必要）
     static let taskIdentifier = "com.yourcompany.MusicLibrary.refresh"
 
-    private let tracker = PlayHistoryTracker()
+    private let tracker = PlayHistoryTracker.shared
 
     /// 起動時に一度だけ呼ぶ：BGTaskを登録
     func registerTasks() {
@@ -35,7 +35,7 @@ final class BackgroundSyncManager {
     /// 最低15分以降に実行されるが、iOSが空き時間に判断して動かす
     func scheduleNextRefresh() {
         let request = BGAppRefreshTaskRequest(identifier: Self.taskIdentifier)
-        request.earliestBeginDate = Date(timeIntervalSinceNow: 30 * 60)  // 30分後以降
+        request.earliestBeginDate = Date(timeIntervalSinceNow: 60 * 60)  // 1時間後以降
 
         do {
             try BGTaskScheduler.shared.submit(request)
@@ -48,17 +48,20 @@ final class BackgroundSyncManager {
     // MARK: - 実行
 
     private func handleRefresh(task: BGAppRefreshTask) async {
-        // 次回の更新を予約（重要：これがないと一度しか動かない）
         scheduleNextRefresh()
 
-        // タイムアウト時のクリーンアップ
-        task.expirationHandler = {
-            // 必要なら処理を中断
+        let operation = Task {
+            await tracker.performBackgroundSync()
         }
 
-        // 履歴同期（性能観点：非同期でブロックしない）
-        await tracker.syncPlayHistory()
+        task.expirationHandler = {
+            operation.cancel()
+        }
 
-        task.setTaskCompleted(success: true)
+        await operation.value
+
+        NotificationService.scheduleEngagementIfNeeded()
+
+        task.setTaskCompleted(success: !operation.isCancelled)
     }
 }

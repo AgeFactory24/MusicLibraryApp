@@ -71,9 +71,10 @@ struct MusicLibraryApp: App {
     private func handleScenePhase(_ phase: ScenePhase) {
         switch phase {
         case .active:
+            UserDefaults.standard.set(Date().timeIntervalSince1970, forKey: "MusicLibrary.LastAppOpen")
             Task {
                 if authService.isAuthorized {
-                    await historyTracker.syncPlayHistory()
+                    await historyTracker.performForegroundSync()
                     NowPlayingActivityManager.shared.start()
                 }
                 await notificationService.checkAuthorization()

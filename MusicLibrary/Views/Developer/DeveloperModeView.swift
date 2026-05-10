@@ -19,6 +19,7 @@ struct DeveloperModeView: View {
         List {
             accuracySection
             syncSection
+            syncLogSection
             coreDataSection
             incrementalDiffSection
             personalityPreviewSection
@@ -97,7 +98,37 @@ struct DeveloperModeView: View {
         }
     }
 
-    // MARK: - 3. Core Data 件数
+    // MARK: - 3. 同期ログ
+
+    private var syncLogSection: some View {
+        Section {
+            if vm.syncLog.isEmpty {
+                Text("同期ログなし")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            } else {
+                ForEach(vm.syncLog) { entry in
+                    SyncLogRow(entry: entry)
+                }
+                Button(role: .destructive) {
+                    vm.clearSyncLog()
+                } label: {
+                    Label("ログをクリア", systemImage: "trash")
+                        .font(.caption)
+                }
+            }
+        } header: {
+            HStack {
+                Text("同期ログ（\(vm.syncLog.count) 件）")
+                Spacer()
+                Text("最大100件保持")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+            }
+        }
+    }
+
+    // MARK: - 4. Core Data 件数
 
     private var coreDataSection: some View {
         Section("Core Data 件数") {
@@ -424,6 +455,67 @@ struct DeveloperModeView: View {
     }
 }
 
+// MARK: - SyncLogRow
+
+private struct SyncLogRow: View {
+    let entry: SyncLogEntry
+
+    private static let timeFormatter: DateFormatter = {
+        let f = DateFormatter()
+        f.dateFormat = "MM/dd HH:mm:ss"
+        return f
+    }()
+
+    var body: some View {
+        HStack(spacing: 10) {
+            Text(entry.trigger.icon)
+                .font(.title3)
+                .frame(width: 28)
+
+            VStack(alignment: .leading, spacing: 3) {
+                HStack(spacing: 6) {
+                    Text(entry.trigger.rawValue)
+                        .font(.caption.bold())
+                        .foregroundStyle(triggerColor)
+                    Text(Self.timeFormatter.string(from: entry.date))
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                        .monospacedDigit()
+                }
+                HStack(spacing: 8) {
+                    Label("\(entry.tracksScanned)曲スキャン", systemImage: "music.note.list")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                    if entry.newHistoryCount > 0 {
+                        Label("+\(entry.newHistoryCount)件", systemImage: "plus.circle.fill")
+                            .font(.caption2.bold())
+                            .foregroundStyle(.green)
+                    } else {
+                        Text("差分なし")
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                    }
+                    Text(String(format: "%.2fs", entry.durationSeconds))
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                        .monospacedDigit()
+                }
+            }
+        }
+        .padding(.vertical, 2)
+    }
+
+    private var triggerColor: Color {
+        switch entry.trigger {
+        case .initial:    return .purple
+        case .foreground: return .blue
+        case .background: return .orange
+        case .widget:     return .teal
+        case .manual:     return .gray
+        }
+    }
+}
+
 // MARK: - DevRow
 
 private struct DevRow: View {
@@ -472,6 +564,7 @@ final class DeveloperModeViewModel: ObservableObject {
     @Published var lastSyncSongCount: Int = 0
     @Published var lastSyncNewHistory: Int = 0
     @Published var isInjecting: Bool = false
+    @Published var syncLog: [SyncLogEntry] = []
 
     private let context = PersistenceController.shared.container.viewContext
 
@@ -509,6 +602,12 @@ final class DeveloperModeViewModel: ObservableObject {
         }
         lastSyncSongCount = UserDefaults.standard.integer(forKey: PlayHistoryTracker.lastSyncSongCountKey)
         lastSyncNewHistory = UserDefaults.standard.integer(forKey: PlayHistoryTracker.lastSyncNewHistoryKey)
+        syncLog = SyncLogStore.load()
+    }
+
+    func clearSyncLog() {
+        SyncLogStore.clear()
+        syncLog = []
     }
 
     func setHasInitialSnapshot(_ value: Bool) {

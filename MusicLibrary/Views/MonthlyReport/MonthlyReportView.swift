@@ -19,6 +19,11 @@ struct MonthlyReportView: View {
                 VStack(spacing: 20) {
                     monthSelector
 
+                    SyncStatusView(
+                        lastSyncDate: historyTracker.lastSyncCompletedAt,
+                        accuracyLevel: historyTracker.historyAccuracyLevel
+                    )
+
                     if historyTracker.historyAccuracyLevel < .developing {
                         AccuracyLevelBanner(level: historyTracker.historyAccuracyLevel)
                     }

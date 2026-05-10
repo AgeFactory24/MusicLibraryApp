@@ -8,9 +8,14 @@ import Foundation
 import CoreData
 import MediaPlayer
 import Combine
+import OSLog
 
 @MainActor
 final class PlayHistoryTracker: ObservableObject {
+
+    static let shared = PlayHistoryTracker()
+
+    private let logger = Logger(subsystem: Bundle.main.bundleIdentifier ?? "MusicLibrary", category: "Sync")
 
     @Published var lastSyncCompletedAt: Date?
     @Published var syncProgress: SyncProgress?
@@ -29,6 +34,11 @@ final class PlayHistoryTracker: ObservableObject {
 
     private var lastSyncedAt: Date?
     private let minSyncInterval: TimeInterval = 30
+
+    private var isSyncing = false
+    private var lastForegroundSyncDate: Date?
+
+    static let widgetSyncCountKey = "MusicLibrary.WidgetSyncCount"
 
     /// 1曲あたり最大何件の履歴を生成するか
     /// 300件 → 大半の楽曲が正確に反映される
@@ -66,6 +76,7 @@ final class PlayHistoryTracker: ObservableObject {
            Date().timeIntervalSince(last) < minSyncInterval {
             return
         }
+        let syncStart = Date()
         lastSyncedAt = Date()
 
         let query = MPMediaQuery.songs()
@@ -90,7 +101,8 @@ final class PlayHistoryTracker: ObservableObject {
             )
         }
 
-        if !hasInitialSnapshot {
+        let isInitial = !hasInitialSnapshot
+        if isInitial {
             print("📸 初回起動: スナップショットのみ記録（履歴生成なし）")
             await performInitialSnapshotOnly(snapshots: snapshots)
             hasInitialSnapshot = true
@@ -99,6 +111,16 @@ final class PlayHistoryTracker: ObservableObject {
             await performIncrementalSyncBatched(snapshots: snapshots)
             diffSyncCount += 1
         }
+
+        let newHistory = UserDefaults.standard.integer(forKey: Self.lastSyncNewHistoryKey)
+        let elapsed = Date().timeIntervalSince(syncStart)
+        SyncLogStore.record(SyncLogEntry(
+            date: Date(),
+            trigger: isInitial ? .initial : .manual,
+            tracksScanned: snapshots.count,
+            newHistoryCount: isInitial ? 0 : newHistory,
+            durationSeconds: elapsed
+        ))
 
         await MainActor.run {
             self.context.refreshAllObjects()
@@ -259,6 +281,161 @@ final class PlayHistoryTracker: ObservableObject {
         }
         snapshot.playCount = count
         snapshot.recordedAt = Date()
+    }
+
+    private static func fetchSnapshots(for trackIDs: [String], in context: NSManagedObjectContext) -> [String: Int32] {
+        let request = NSFetchRequest<PlayCountSnapshotEntity>(entityName: "PlayCountSnapshotEntity")
+        request.predicate = NSPredicate(format: "trackID IN %@", trackIDs)
+        guard let results = try? context.fetch(request) else { return [:] }
+        var map: [String: Int32] = [:]
+        for s in results { map[s.trackID] = s.playCount }
+        return map
+    }
+
+    // MARK: - Foreground Sync (5-minute debounce)
+
+    func performForegroundSync() async {
+        guard !isSyncing else {
+            logger.info("⏭ Foreground sync skipped: already syncing")
+            return
+        }
+        if let last = lastForegroundSyncDate, Date().timeIntervalSince(last) < 300 {
+            logger.info("⏭ Foreground sync skipped: within 5-minute cooldown")
+            return
+        }
+        isSyncing = true
+        defer { isSyncing = false; lastForegroundSyncDate = Date() }
+        let start = Date()
+        logger.info("▶ Foreground sync started")
+        await performLightweightDiffScan(trigger: .foreground)
+        logger.info("✅ Foreground sync done in \(Date().timeIntervalSince(start), privacy: .public)s")
+    }
+
+    // MARK: - Background Sync
+
+    func performBackgroundSync() async {
+        let start = Date()
+        logger.info("▶ Background sync started")
+        await performLightweightDiffScan(trigger: .background)
+        logger.info("✅ Background sync done in \(Date().timeIntervalSince(start), privacy: .public)s")
+    }
+
+    // MARK: - Widget Sync
+
+    func performWidgetSync() async {
+        let count = UserDefaults.standard.integer(forKey: Self.widgetSyncCountKey) + 1
+        UserDefaults.standard.set(count, forKey: Self.widgetSyncCountKey)
+        logger.info("▶ Widget sync #\(count) started")
+        await performLightweightDiffScan(trigger: .widget)
+    }
+
+    // MARK: - Lightweight Diff Scan (max 100 tracks, recently played priority)
+
+    func performLightweightDiffScan(trigger: SyncTrigger = .foreground) async {
+        let scanStart = Date()
+        let query = MPMediaQuery.songs()
+        guard let items = query.items, !items.isEmpty else {
+            logger.warning("⚠️ Lightweight scan: no items from MPMediaQuery")
+            return
+        }
+
+        let top100 = Array(items
+            .sorted { ($0.lastPlayedDate ?? .distantPast) > ($1.lastPlayedDate ?? .distantPast) }
+            .prefix(100))
+
+        logger.info("📊 Lightweight scan: \(top100.count) tracks selected from \(items.count) total")
+
+        let snapshots: [MediaItemSnapshot] = top100.compactMap { item in
+            guard let title = item.title else { return nil }
+            return MediaItemSnapshot(
+                trackID: String(item.persistentID),
+                title: title,
+                artistName: item.artist ?? "不明",
+                albumTitle: item.albumTitle ?? "不明",
+                playCount: Int32(item.playCount),
+                duration: item.playbackDuration,
+                lastPlayedDate: item.lastPlayedDate ?? Date(),
+                isLocalAsset: item.assetURL != nil
+            )
+        }
+
+        if !hasInitialSnapshot {
+            await performInitialSnapshotOnly(snapshots: snapshots)
+            hasInitialSnapshot = true
+            SyncLogStore.record(SyncLogEntry(
+                date: Date(), trigger: .initial,
+                tracksScanned: snapshots.count, newHistoryCount: 0,
+                durationSeconds: Date().timeIntervalSince(scanStart)
+            ))
+            return
+        }
+
+        let diffCount = await performLightweightDiffSave(snapshots: snapshots)
+        logger.info("✅ Lightweight scan complete: \(diffCount) new history entries")
+
+        let elapsed = Date().timeIntervalSince(scanStart)
+        await MainActor.run {
+            self.context.refreshAllObjects()
+            self.lastSyncCompletedAt = Date()
+            self.diffSyncCount += 1
+            UserDefaults.standard.set(Date().timeIntervalSince1970, forKey: Self.lastSyncDateKey)
+            UserDefaults.standard.set(diffCount, forKey: Self.lastSyncNewHistoryKey)
+        }
+        SyncLogStore.record(SyncLogEntry(
+            date: Date(), trigger: trigger,
+            tracksScanned: snapshots.count, newHistoryCount: diffCount,
+            durationSeconds: elapsed
+        ))
+    }
+
+    @discardableResult
+    private func performLightweightDiffSave(snapshots: [MediaItemSnapshot]) async -> Int {
+        let bgContext = container.newBackgroundContext()
+        bgContext.mergePolicy = NSMergeByPropertyObjectTrumpMergePolicy
+
+        return await withCheckedContinuation { continuation in
+            bgContext.perform {
+                let trackIDs = snapshots.map(\.trackID)
+                let snapshotMap = Self.fetchSnapshots(for: trackIDs, in: bgContext)
+                var totalDiff = 0
+                var processedSinceLastSave = 0
+
+                for snapshot in snapshots {
+                    let previousCount = snapshotMap[snapshot.trackID] ?? 0
+                    let diff = snapshot.playCount - previousCount
+                    if diff > 0 {
+                        let entriesToCreate = min(Int(diff), Self.maxHistoryPerTrack)
+                        for i in 0..<entriesToCreate {
+                            let entry = PlayHistoryEntity(context: bgContext)
+                            entry.trackID = snapshot.trackID
+                            entry.title = snapshot.title
+                            entry.artistName = snapshot.artistName
+                            entry.albumTitle = snapshot.albumTitle
+                            entry.duration = snapshot.duration > 0 ? snapshot.duration : 180
+                            entry.isLocalAsset = snapshot.isLocalAsset
+                            entry.playCountSnapshot = snapshot.playCount - Int32(i)
+                            entry.playedAt = snapshot.lastPlayedDate.addingTimeInterval(-Double(i) * 1800)
+                        }
+                        totalDiff += entriesToCreate
+                        processedSinceLastSave += entriesToCreate
+                    }
+
+                    Self.updateSnapshot(trackID: snapshot.trackID, count: snapshot.playCount, in: bgContext)
+
+                    if processedSinceLastSave >= 50 {
+                        try? bgContext.save()
+                        bgContext.reset()
+                        processedSinceLastSave = 0
+                    }
+                }
+
+                if bgContext.hasChanges {
+                    try? bgContext.save()
+                }
+
+                continuation.resume(returning: totalDiff)
+            }
+        }
     }
 }
 
