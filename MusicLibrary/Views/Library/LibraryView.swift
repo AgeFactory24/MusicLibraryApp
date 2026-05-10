@@ -281,11 +281,6 @@ struct TrackRowView: View {
                     Text(track.title)
                         .font(.subheadline.bold())
                         .lineLimit(1)
-                    if track.isLocalAsset {
-                        Image(systemName: "opticaldisc")
-                            .font(.caption2)
-                            .foregroundStyle(.blue)
-                    }
                     if favoriteService.isFavorite(trackID: track.id) {
                         Image(systemName: "heart.fill")
                             .font(.caption2)

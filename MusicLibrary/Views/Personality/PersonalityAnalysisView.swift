@@ -1,266 +1,535 @@
 // PersonalityAnalysisView.swift
-// MusicLibrary
+// MusicLibrary — "自分の音楽人格を発見する" 体験
 
 import SwiftUI
 import UIKit
+
+// MARK: - Main View
 
 struct PersonalityAnalysisView: View {
     @EnvironmentObject var libraryVM: LibraryViewModel
     @StateObject private var vm = PersonalityAnalysisViewModel()
     @State private var shareImage: UIImage?
     @State private var showShareSheet = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @AppStorage("DEV.PreviewPersonality") private var previewPersonalityRaw: String = ""
+
+    private var effectiveTopTag: PersonalityTag? {
+        guard let realTag = vm.tags.first else { return nil }
+        guard !previewPersonalityRaw.isEmpty,
+              let previewPersonality = Personality(rawValue: previewPersonalityRaw) else {
+            return realTag
+        }
+        return PersonalityTag(
+            personality: previewPersonality,
+            score: realTag.score,
+            reason: realTag.reason,
+            precision: realTag.precision
+        )
+    }
 
     var body: some View {
         NavigationStack {
-            ScrollView {
+            Group {
+                if vm.isLoading {
+                    loadingView
+                } else if vm.tags.isEmpty {
+                    EmptyPersonalityView()
+                } else {
+                    contentScroll
+                }
+            }
+            .navigationTitle("")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbarBackground(.hidden, for: .navigationBar)
+            .tint(.white)
+        }
+        .onAppear { vm.analyze(tracks: libraryVM.tracks) }
+        .sheet(isPresented: $showShareSheet) {
+            if let img = shareImage { ActivityShareSheet(items: [img]) }
+        }
+    }
+
+    private var loadingView: some View {
+        VStack(spacing: 16) {
+            ProgressView()
+                .scaleEffect(1.4)
+            Text("音楽人格を分析中…")
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+
+    private var contentScroll: some View {
+        ScrollView(showsIndicators: false) {
+            VStack(spacing: 0) {
+                // Hero
+                if let top = effectiveTopTag {
+                    HeroCard(tag: top, reduceMotion: reduceMotion, onShare: { sharePersonality(tag: top) })
+                }
+
+                // Body sections
                 VStack(spacing: 24) {
-                    if vm.isLoading {
-                        ProgressView("分析中...")
-                            .padding(.top, 60)
-                    } else if vm.tags.isEmpty {
-                        EmptyPersonalityView()
-                    } else {
-                        PersonalityHeaderView(tags: vm.tags)
-                        TagListSection(tags: vm.tags)
-                        if let metrics = vm.metrics {
-                            MetricsSummarySection(metrics: metrics)
-                        }
-                        PrecisionNoticeView()
-                        if let top = vm.tags.first {
-                            shareButton(tag: top)
-                        }
+                    if !previewPersonalityRaw.isEmpty {
+                        previewBanner
                     }
+
+                    if let metrics = vm.metrics, let top = effectiveTopTag {
+                        WhySection(personality: top.personality, metrics: metrics, reduceMotion: reduceMotion)
+                    }
+
+                    if vm.tags.count > 1 {
+                        OtherFacetsSection(tags: Array(vm.tags.dropFirst()), reduceMotion: reduceMotion)
+                    }
+
+                    PrecisionNoticeView()
+
+                    Color.clear.frame(height: 32)
                 }
-                .padding(.vertical)
-            }
-            .navigationTitle("あなたの音楽性格")
-            .onAppear {
-                vm.analyze(tracks: libraryVM.tracks)
-            }
-            .sheet(isPresented: $showShareSheet) {
-                if let img = shareImage {
-                    ActivityShareSheet(items: [img])
-                }
+                .padding(.top, 28)
+                .background(Color(.systemBackground))
             }
         }
+        .ignoresSafeArea(edges: .top)
+    }
+
+    private var previewBanner: some View {
+        HStack(spacing: 6) {
+            Image(systemName: "eye.fill")
+                .font(.caption2)
+            Text("DEV PREVIEW: \(previewPersonalityRaw)")
+                .font(.caption2.bold())
+        }
+        .foregroundStyle(.blue)
+        .padding(.horizontal, 14)
+        .padding(.vertical, 7)
+        .background(Color.blue.opacity(0.1))
+        .overlay(
+            Capsule().stroke(Color.blue.opacity(0.3), lineWidth: 1)
+        )
+        .clipShape(Capsule())
+        .padding(.horizontal)
     }
 
     @MainActor
-    private func shareButton(tag: PersonalityTag) -> some View {
-        Button {
-            Haptics.play(.medium)
-            let card = PersonalityShareCard(tag: tag)
-            shareImage = ShareImageRenderer().render(card, size: CGSize(width: 600, height: 400))
-            showShareSheet = shareImage != nil
-        } label: {
-            Label("パーソナリティをシェア", systemImage: "square.and.arrow.up")
-                .font(.headline)
-                .frame(maxWidth: .infinity)
-                .padding()
-                .background(.pink)
-                .foregroundStyle(.white)
-                .clipShape(RoundedRectangle(cornerRadius: 14))
-                .padding(.horizontal)
-        }
+    private func sharePersonality(tag: PersonalityTag) {
+        Haptics.play(.medium)
+        let card = PersonalityShareCard(tag: tag)
+        shareImage = ShareImageRenderer().render(card, size: CGSize(width: 600, height: 420))
+        showShareSheet = shareImage != nil
     }
 }
 
-// MARK: - ヘッダー（上位タグをまとめて表示）
+// MARK: - Hero Card
 
-private struct PersonalityHeaderView: View {
-    let tags: [PersonalityTag]
-
-    var body: some View {
-        VStack(spacing: 8) {
-            if let top = tags.first {
-                Text(top.personality.icon)
-                    .font(.system(size: 64))
-                Text(top.personality.rawValue)
-                    .font(.title.bold())
-                Text("あなたの聴き方を分析しました")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-            }
-            // 全タグをコンパクトに横並び
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 8) {
-                    ForEach(tags) { tag in
-                        Text("\(tag.personality.icon) \(tag.personality.rawValue)")
-                            .font(.caption.bold())
-                            .padding(.horizontal, 10)
-                            .padding(.vertical, 5)
-                            .background(Color.pink.opacity(0.15))
-                            .foregroundStyle(.pink)
-                            .clipShape(Capsule())
-                    }
-                }
-                .padding(.horizontal)
-            }
-        }
-        .padding(.horizontal)
-    }
-}
-
-// MARK: - タグリスト（判定理由付き）
-
-private struct TagListSection: View {
-    let tags: [PersonalityTag]
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            SectionHeader(title: "あなたのパーソナリティ")
-            ForEach(Array(tags.enumerated()), id: \.element.id) { index, tag in
-                PersonalityTagCard(rank: index + 1, tag: tag)
-            }
-        }
-        .padding(.horizontal)
-    }
-}
-
-private struct PersonalityTagCard: View {
-    let rank: Int
+private struct HeroCard: View {
     let tag: PersonalityTag
+    let reduceMotion: Bool
+    let onShare: () -> Void
 
-    private var rankColor: Color {
-        switch rank {
-        case 1: return .yellow
-        case 2: return Color(white: 0.75)
-        case 3: return .orange
-        default: return .secondary.opacity(0.6)
-        }
+    @State private var gradientAnimate = false
+    @State private var orbAnimate = false
+    @State private var glowPulse = false
+    @State private var appeared = false
+
+    // デバイスごとの上端余白（ノッチ / Dynamic Island 対応）
+    private var topInset: CGFloat {
+        (UIApplication.shared.connectedScenes.first as? UIWindowScene)?
+            .windows.first(where: { $0.isKeyWindow })?
+            .safeAreaInsets.top ?? 44
     }
 
     var body: some View {
-        HStack(alignment: .top, spacing: 14) {
-            // ランク番号
-            ZStack {
+        ZStack(alignment: .bottom) {
+            heroBackground
+
+            VStack(spacing: 0) {
+                // ナビゲーションバー分の余白
+                Spacer().frame(height: topInset + 48)
+
+                // グロー + アイコン
+                ZStack {
+                    Circle()
+                        .fill(
+                            RadialGradient(
+                                colors: [tag.personality.gradient[0].opacity(0.55), .clear],
+                                center: .center, startRadius: 0, endRadius: 90
+                            )
+                        )
+                        .frame(width: 180, height: 180)
+                        .blur(radius: 24)
+                        .scaleEffect(glowPulse ? 1.15 : 0.88)
+                        .animation(
+                            reduceMotion ? nil : .easeInOut(duration: 2.2).repeatForever(autoreverses: true),
+                            value: glowPulse
+                        )
+
+                    PersonalityIconSymbol(personality: tag.personality, size: 120, animated: !reduceMotion)
+                }
+                .scaleEffect(appeared ? 1 : 0.5)
+                .opacity(appeared ? 1 : 0)
+                .padding(.bottom, 20)
+
+                // パーソナリティ名
+                Text(tag.personality.rawValue)
+                    .font(.system(size: 36, weight: .black, design: .rounded))
+                    .foregroundStyle(.white)
+                    .shadow(color: .black.opacity(0.25), radius: 6)
+                    .opacity(appeared ? 1 : 0)
+                    .offset(y: appeared ? 0 : 14)
+
+                // キャッチコピー
+                Text(tag.personality.catchphrase)
+                    .font(.title3)
+                    .italic()
+                    .foregroundStyle(.white.opacity(0.88))
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal, 28)
+                    .padding(.top, 8)
+                    .opacity(appeared ? 1 : 0)
+                    .offset(y: appeared ? 0 : 10)
+
+                // 一言説明
+                Text(tag.personality.personalityDescription)
+                    .font(.subheadline)
+                    .foregroundStyle(.white.opacity(0.65))
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal, 36)
+                    .padding(.top, 10)
+                    .opacity(appeared ? 1 : 0)
+                    .offset(y: appeared ? 0 : 6)
+
+                Spacer(minLength: 24)
+
+                // シェアボタン
+                Button(action: onShare) {
+                    HStack(spacing: 8) {
+                        Image(systemName: "square.and.arrow.up")
+                        Text("パーソナリティをシェア")
+                    }
+                    .font(.subheadline.bold())
+                    .foregroundStyle(.white)
+                    .padding(.horizontal, 28)
+                    .padding(.vertical, 12)
+                    .background(.ultraThinMaterial.opacity(0.8))
+                    .clipShape(Capsule())
+                    .overlay(Capsule().stroke(.white.opacity(0.3), lineWidth: 1))
+                }
+                .opacity(appeared ? 1 : 0)
+                .padding(.bottom, 36)
+            }
+        }
+        .frame(maxWidth: .infinity)
+        .frame(height: 500 + max(0, topInset - 44))
+        .onAppear {
+            if !reduceMotion {
+                gradientAnimate = true
+                orbAnimate = true
+                glowPulse = true
+            }
+            withAnimation(.spring(response: 0.7, dampingFraction: 0.72).delay(0.1)) {
+                appeared = true
+            }
+        }
+    }
+
+    private var heroBackground: some View {
+        ZStack {
+            // ベースグラジェント（ゆっくり方向が変化）
+            LinearGradient(
+                colors: tag.personality.gradient + [.black.opacity(0.35)],
+                startPoint: gradientAnimate ? .topLeading : .bottomTrailing,
+                endPoint: gradientAnimate ? .bottomTrailing : .topLeading
+            )
+            .animation(
+                reduceMotion ? nil : .easeInOut(duration: 7).repeatForever(autoreverses: true),
+                value: gradientAnimate
+            )
+
+            // フローティング オーブ（拡散光）
+            if !reduceMotion {
                 Circle()
-                    .fill(rankColor.opacity(0.2))
-                    .frame(width: 32, height: 32)
-                Text("#\(rank)")
-                    .font(.caption.bold())
-                    .foregroundStyle(rankColor)
+                    .fill(
+                        RadialGradient(
+                            colors: [.white.opacity(0.22), .clear],
+                            center: .center, startRadius: 0, endRadius: 130
+                        )
+                    )
+                    .frame(width: 260, height: 260)
+                    .offset(x: orbAnimate ? -70 : 70, y: orbAnimate ? -100 : 40)
+                    .blur(radius: 28)
+                    .animation(.easeInOut(duration: 9).repeatForever(autoreverses: true), value: orbAnimate)
             }
 
-            VStack(alignment: .leading, spacing: 4) {
-                HStack(spacing: 6) {
-                    Text(tag.personality.icon)
-                    Text(tag.personality.rawValue)
-                        .font(.subheadline.bold())
-                    if tag.precision == .estimated {
-                        EstimatedBadge()
+            // 下部フェード（コンテンツ背景へのなじみ）
+            LinearGradient(
+                colors: [.clear, Color(.systemBackground)],
+                startPoint: UnitPoint(x: 0.5, y: 0.72),
+                endPoint: .bottom
+            )
+        }
+        .ignoresSafeArea(edges: .top)
+    }
+}
+
+// MARK: - Why Section
+
+private struct WhySection: View {
+    let personality: Personality
+    let metrics: ListeningMetrics
+    let reduceMotion: Bool
+
+    private struct MetricDef {
+        let icon: String
+        let label: String
+        let value: Double
+        let color: Color
+    }
+
+    private var metricDefs: [MetricDef] {
+        [
+            MetricDef(icon: "person.fill",
+                      label: "アーティスト集中度",
+                      value: metrics.top1ArtistRatio,
+                      color: personality.gradient.first ?? .pink),
+            MetricDef(icon: "arrow.triangle.2.circlepath",
+                      label: "お気に入り曲リピート率",
+                      value: metrics.top10TrackRatio,
+                      color: .orange),
+            MetricDef(icon: "music.note.list",
+                      label: "ジャンル集中度",
+                      value: metrics.topGenreRatio,
+                      color: .teal),
+            MetricDef(icon: "opticaldisc",
+                      label: "ローカル音源率",
+                      value: metrics.localPlayRatio,
+                      color: .blue)
+        ]
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            SectionHeader(title: "なぜこの人格？")
+
+            VStack(spacing: 0) {
+                // 数値バー × 4
+                ForEach(Array(metricDefs.enumerated()), id: \.offset) { i, m in
+                    MetricBarRow(icon: m.icon, label: m.label,
+                                 value: m.value, color: m.color,
+                                 delay: Double(i) * 0.08,
+                                 reduceMotion: reduceMotion)
+                    if i < metricDefs.count - 1 {
+                        Divider().padding(.leading, 28).opacity(0.4)
                     }
                 }
-                Text(tag.reason)
+            }
+            .padding(.vertical, 4)
+            .background(Color(.secondarySystemBackground))
+            .clipShape(RoundedRectangle(cornerRadius: 16))
+
+            // 一言インサイト
+            HStack(alignment: .top, spacing: 8) {
+                Image(systemName: "quote.opening")
+                    .font(.caption2)
+                    .foregroundStyle(personality.gradient.first ?? .pink)
+                    .padding(.top, 2)
+                Text(insightText)
                     .font(.caption)
                     .foregroundStyle(.secondary)
-
-                // スコアバー
-                GeometryReader { geo in
-                    ZStack(alignment: .leading) {
-                        Capsule().fill(Color(.systemGray5))
-                        Capsule()
-                            .fill(LinearGradient(
-                                colors: [.pink, .purple],
-                                startPoint: .leading, endPoint: .trailing))
-                            .frame(width: geo.size.width * tag.score)
-                    }
-                }
-                .frame(height: 4)
-                .padding(.top, 2)
+                    .fixedSize(horizontal: false, vertical: true)
             }
-        }
-        .padding()
-        .background(Color(.secondarySystemBackground))
-        .clipShape(RoundedRectangle(cornerRadius: 14))
-    }
-}
-
-// MARK: - メトリクスサマリー
-
-private struct MetricsSummarySection: View {
-    let metrics: ListeningMetrics
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            SectionHeader(title: "分析データ")
-            LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 10) {
-                MetricCard(
-                    label: "TOP1アーティスト集中度",
-                    value: percentString(metrics.top1ArtistRatio),
-                    icon: "person.fill",
-                    color: .pink
-                )
-                MetricCard(
-                    label: "TOP10楽曲リピート率",
-                    value: percentString(metrics.top10TrackRatio),
-                    icon: "arrow.triangle.2.circlepath",
-                    color: .orange
-                )
-                MetricCard(
-                    label: "ユニークアーティスト",
-                    value: "\(metrics.uniqueArtistCount)組",
-                    icon: "music.mic",
-                    color: .purple
-                )
-                MetricCard(
-                    label: "ジャンル集中度",
-                    value: percentString(metrics.topGenreRatio),
-                    icon: "music.note.list",
-                    color: .teal
-                )
-                MetricCard(
-                    label: "ローカル音源（CD）",
-                    value: percentString(metrics.localPlayRatio),
-                    icon: "opticaldisc",
-                    color: .blue
-                )
-                MetricCard(
-                    label: "Apple Musicストリーミング",
-                    value: percentString(metrics.streamingPlayRatio),
-                    icon: "applelogo",
-                    color: .gray
-                )
-            }
+            .padding(.horizontal, 4)
         }
         .padding(.horizontal)
     }
 
-    private func percentString(_ ratio: Double) -> String {
-        "\(Int(ratio * 100))%"
+    private var insightText: String {
+        let artist = metrics.top1ArtistName
+        let genre  = metrics.topGenreName
+        let total  = metrics.totalPlayCount
+        switch personality {
+        case .obsessedFan:
+            return "再生の \(pct(metrics.top1ArtistRatio)) が \(artist) です。それが「推しが本気」の証明。"
+        case .singleFocus:
+            return "TOP10楽曲で全再生の \(pct(metrics.top10TrackRatio)) を占めています。一曲を深く掘り下げるスタイル。"
+        case .heavyRotator:
+            return "同じ曲を何度も聴き込む、熟練のリスニング。曲の奥深さを知っています。"
+        case .genreAddict:
+            return "\(genre) への集中度 \(pct(metrics.topGenreRatio))。そのジャンルがあなたの言語です。"
+        case .collector:
+            return "再生の \(pct(metrics.localPlayRatio)) がローカル音源。CDで音楽を「所有する」文化の体現者。"
+        case .streamingFan:
+            return "再生の \(pct(metrics.streamingPlayRatio)) がApple Music。デジタル音楽の最前線にいます。"
+        case .legend:
+            return "累計 \(total.formatted()) 回再生。積み上げてきた時間が、すべてを語ります。"
+        case .balanced:
+            return "\(metrics.uniqueArtistCount) 組のアーティスト、均等なジャンル分散。理想的な音楽バランスです。"
+        case .loyalListener:
+            return "TOP10アーティストで \(pct(metrics.top10ArtistRatio))。信頼のラインナップを持つリスナーです。"
+        case .explorer:
+            return "常に新しい音楽を探し求める、音楽探検家。その好奇心が音楽体験を広げています。"
+        case .growingListener:
+            return "日々アップデートされるライブラリ。音楽と共に、あなた自身も進化しています。"
+        case .nostalgic:
+            return "育ててきた名曲たちを、今日も大切に聴いています。そこには帰れる場所がある。"
+        }
     }
+
+    private func pct(_ v: Double) -> String { "\(Int(v * 100))%" }
 }
 
-private struct MetricCard: View {
-    let label: String
-    let value: String
+// MARK: - Metric Bar Row
+
+private struct MetricBarRow: View {
     let icon: String
+    let label: String
+    let value: Double
     let color: Color
+    let delay: Double
+    let reduceMotion: Bool
+
+    @State private var progress: Double = 0
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
-            HStack(spacing: 6) {
+            HStack(spacing: 8) {
                 Image(systemName: icon)
                     .font(.caption)
                     .foregroundStyle(color)
+                    .frame(width: 14)
                 Text(label)
-                    .font(.caption2)
+                    .font(.caption)
                     .foregroundStyle(.secondary)
-                    .lineLimit(2)
-                    .minimumScaleFactor(0.8)
+                Spacer()
+                Text("\(Int(value * 100))%")
+                    .font(.caption.bold())
+                    .foregroundStyle(color)
+                    .monospacedDigit()
             }
-            Text(value)
-                .font(.title3.bold())
-                .foregroundStyle(.primary)
+
+            GeometryReader { geo in
+                ZStack(alignment: .leading) {
+                    Capsule().fill(Color(.systemGray5))
+                    Capsule()
+                        .fill(LinearGradient(
+                            colors: [color, color.opacity(0.55)],
+                            startPoint: .leading, endPoint: .trailing
+                        ))
+                        .frame(width: geo.size.width * progress)
+                }
+            }
+            .frame(height: 5)
         }
-        .padding(12)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color(.secondarySystemBackground))
-        .clipShape(RoundedRectangle(cornerRadius: 12))
+        .padding(.horizontal, 14)
+        .padding(.vertical, 10)
+        .onAppear {
+            let target = min(max(value, 0), 1)
+            if reduceMotion {
+                progress = target
+            } else {
+                withAnimation(.spring(response: 0.75, dampingFraction: 0.68).delay(delay)) {
+                    progress = target
+                }
+            }
+        }
     }
 }
 
-// MARK: - 精度注記
+// MARK: - Other Facets Section
+
+private struct OtherFacetsSection: View {
+    let tags: [PersonalityTag]
+    let reduceMotion: Bool
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            SectionHeader(title: "あなたの他の面")
+                .padding(.horizontal)
+
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 12) {
+                    ForEach(Array(tags.enumerated()), id: \.element.id) { i, tag in
+                        OtherFacetCard(tag: tag, delay: Double(i) * 0.06, reduceMotion: reduceMotion)
+                    }
+                }
+                .padding(.horizontal)
+            }
+        }
+    }
+}
+
+private struct OtherFacetCard: View {
+    let tag: PersonalityTag
+    let delay: Double
+    let reduceMotion: Bool
+
+    @State private var appeared = false
+    @State private var barProgress: Double = 0
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 10) {
+                PersonalityIconSymbol(personality: tag.personality, size: 44, animated: false)
+                VStack(alignment: .leading, spacing: 2) {
+                    HStack(spacing: 4) {
+                        Text(tag.personality.rawValue)
+                            .font(.caption.bold())
+                            .lineLimit(1)
+                        if tag.precision == .estimated {
+                            EstimatedBadge()
+                        }
+                    }
+                    Text(tag.personality.catchphrase)
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                        .italic()
+                        .lineLimit(1)
+                }
+            }
+
+            Text(tag.reason)
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+                .lineLimit(2)
+                .fixedSize(horizontal: false, vertical: true)
+
+            GeometryReader { geo in
+                ZStack(alignment: .leading) {
+                    Capsule().fill(Color(.systemGray5))
+                    Capsule()
+                        .fill(LinearGradient(
+                            colors: tag.personality.gradient,
+                            startPoint: .leading, endPoint: .trailing
+                        ))
+                        .frame(width: geo.size.width * barProgress)
+                }
+            }
+            .frame(height: 4)
+        }
+        .padding(14)
+        .frame(width: 230)
+        .background(Color(.secondarySystemBackground))
+        .clipShape(RoundedRectangle(cornerRadius: 16))
+        .opacity(appeared ? 1 : 0)
+        .offset(y: appeared ? 0 : 12)
+        .onAppear {
+            if reduceMotion {
+                appeared = true
+                barProgress = min(tag.score, 1)
+            } else {
+                withAnimation(.spring(response: 0.55, dampingFraction: 0.75).delay(delay)) {
+                    appeared = true
+                }
+                withAnimation(.spring(response: 0.7).delay(delay + 0.15)) {
+                    barProgress = min(tag.score, 1)
+                }
+            }
+        }
+    }
+}
+
+// MARK: - Precision Notice
 
 private struct PrecisionNoticeView: View {
     var body: some View {
@@ -273,18 +542,18 @@ private struct PrecisionNoticeView: View {
                     .font(.caption.bold())
                     .foregroundStyle(.secondary)
             }
-            Text("「推定」マーク付きのタグは、楽曲の追加日（dateAdded）を基に算出しています。Apple Musicの制約により正確な再生履歴は取得できないため、推定値として参考にしてください。その他のタグは再生回数（playCount）から直接算出した高精度データです。")
+            Text("「推定」マーク付きのタグは dateAdded を基に算出しています。Apple Musicの制約により正確な再生履歴は取得できないため、推定値として参考にしてください。利用継続で詳細分析の精度が向上します。")
                 .font(.caption2)
                 .foregroundStyle(.tertiary)
         }
         .padding()
         .background(Color(.systemGray6))
-        .clipShape(RoundedRectangle(cornerRadius: 10))
+        .clipShape(RoundedRectangle(cornerRadius: 12))
         .padding(.horizontal)
     }
 }
 
-// MARK: - 推定バッジ
+// MARK: - 推定バッジ（module-level）
 
 struct EstimatedBadge: View {
     var body: some View {
@@ -304,17 +573,18 @@ private struct EmptyPersonalityView: View {
     var body: some View {
         VStack(spacing: 16) {
             Image(systemName: "music.note.list")
-                .font(.system(size: 48))
+                .font(.system(size: 52))
                 .foregroundStyle(.secondary)
             Text("データが不足しています")
                 .font(.headline)
-            Text("楽曲を再生すると、あなたのリスニングパーソナリティが分析されます。")
+            Text("楽曲を再生するとリスニングパーソナリティが分析されます。")
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
                 .padding(.horizontal)
         }
-        .padding(.top, 60)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .padding(.top, 80)
     }
 }
 
@@ -326,31 +596,55 @@ private struct PersonalityShareCard: View {
     var body: some View {
         ZStack {
             LinearGradient(
-                colors: tag.personality.gradient,
+                colors: tag.personality.gradient + [.black.opacity(0.2)],
                 startPoint: .topLeading,
                 endPoint: .bottomTrailing
             )
-            VStack(spacing: 16) {
-                PersonalityIconSymbol(personality: tag.personality, size: 120)
+
+            VStack(spacing: 14) {
+                PersonalityIconSymbol(personality: tag.personality, size: 110, animated: false)
+
                 Text(tag.personality.rawValue)
-                    .font(.system(size: 32, weight: .heavy, design: .rounded))
+                    .font(.system(size: 30, weight: .black, design: .rounded))
                     .foregroundStyle(.white)
-                Text(tag.personality.personalityDescription)
+
+                Text(tag.personality.catchphrase)
                     .font(.subheadline)
-                    .foregroundStyle(.white.opacity(0.85))
+                    .italic()
+                    .foregroundStyle(.white.opacity(0.88))
                     .multilineTextAlignment(.center)
-                    .padding(.horizontal, 32)
-                Text("MusicLibrary")
-                    .font(.caption.bold())
-                    .foregroundStyle(.white.opacity(0.5))
-                    .padding(.top, 8)
+                    .padding(.horizontal, 28)
+
+                Rectangle()
+                    .fill(.white.opacity(0.25))
+                    .frame(height: 0.5)
+                    .padding(.horizontal, 48)
+
+                Text(tag.personality.personalityDescription)
+                    .font(.caption)
+                    .foregroundStyle(.white.opacity(0.72))
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal, 36)
+
+                HStack(spacing: 5) {
+                    Image("AppLogoImage")
+                        .resizable()
+                        .scaledToFit()
+                        .frame(width: 16, height: 16)
+                        .clipShape(RoundedRectangle(cornerRadius: 4, style: .continuous))
+                        .shadow(color: .black.opacity(0.15), radius: 2)
+                    Text("MusicLibrary")
+                        .font(.caption2.bold())
+                        .foregroundStyle(.white.opacity(0.45))
+                }
+                .padding(.top, 4)
             }
-            .padding(40)
+            .padding(44)
         }
     }
 }
 
-// MARK: - UIActivityViewController ラッパー
+// MARK: - UIActivityViewController ラッパー（module-level）
 
 struct ActivityShareSheet: UIViewControllerRepresentable {
     let items: [Any]

@@ -20,6 +20,7 @@ struct MusicLibraryApp: App {
     @AppStorage("MusicLibrary.HasCompletedOnboarding")
     private var hasCompletedOnboarding: Bool = false
 
+    @State private var showSplash: Bool = true
     @Environment(\.scenePhase) private var scenePhase
 
     init() {
@@ -42,13 +43,18 @@ struct MusicLibraryApp: App {
                 .task {
                     if authService.isAuthorized {
                         await historyTracker.syncPlayHistory()
-                        // Live Activity は遅延起動（履歴同期完了後）
-                        // クラッシュ回避のため try-catch相当の保護を内部で行う
                         NowPlayingActivityManager.shared.start()
                     }
                 }
                 .onChange(of: scenePhase) { _, newPhase in
                     handleScenePhase(newPhase)
+                }
+                .overlay {
+                    if showSplash {
+                        SplashView(isShowing: $showSplash)
+                            .ignoresSafeArea()
+                            .transition(.opacity)
+                    }
                 }
         }
     }

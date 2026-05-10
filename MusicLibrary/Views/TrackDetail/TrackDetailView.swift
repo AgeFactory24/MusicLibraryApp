@@ -19,15 +19,9 @@ struct TrackDetailView: View {
                         .shadow(radius: 6)
 
                     VStack(spacing: 4) {
-                        HStack {
-                            Text(track.title)
-                                .font(.title2.bold())
-                                .multilineTextAlignment(.center)
-                            if track.isLocalAsset {
-                                Image(systemName: "opticaldisc")
-                                    .foregroundStyle(.blue)
-                            }
-                        }
+                        Text(track.title)
+                            .font(.title2.bold())
+                            .multilineTextAlignment(.center)
                         Text(track.artistName)
                             .font(.headline)
                             .foregroundStyle(.secondary)

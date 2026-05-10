@@ -20,7 +20,7 @@ struct YearlyReportView: View {
 
                 if let report = viewModel.report, report.totalPlayCount > 0 {
                     summaryCard(report: report)
-                    PersonalityInlineRow(personality: report.personality)
+                    PersonalityInlineRow(personality: report.personality, reason: report.personalityReason)
                     GenreReportSection(
                         genreData: report.genreData,
                         totalPlayCount: report.totalPlayCount
@@ -56,15 +56,38 @@ struct YearlyReportView: View {
     }
 
     private var emptyState: some View {
-        VStack(spacing: 12) {
-            Image(systemName: "calendar.badge.exclamationmark")
-                .font(.system(size: 50))
-                .foregroundStyle(.pink.opacity(0.5))
-            Text("\(String(viewModel.selectedYear))年のデータはまだありません")
-                .font(.headline)
-            Text("音楽を聴くと履歴が蓄積されます")
-                .font(.caption)
-                .foregroundStyle(.secondary)
+        VStack(spacing: 16) {
+            if historyTracker.historyAccuracyLevel == .baseline {
+                Image(systemName: "checkmark.circle.fill")
+                    .font(.system(size: 50))
+                    .foregroundStyle(.green.opacity(0.8))
+                Text("ライブラリを記録しました")
+                    .font(.headline)
+                Text("次回の同期でリスニング履歴が蓄積されます\n今後5回の同期で詳細分析が始まります")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
+            } else if historyTracker.historyAccuracyLevel == .early {
+                let remaining = max(0, 5 - historyTracker.diffSyncCount)
+                Image(systemName: "chart.line.uptrend.xyaxis")
+                    .font(.system(size: 50))
+                    .foregroundStyle(.orange.opacity(0.8))
+                Text("データ蓄積中")
+                    .font(.headline)
+                Text("あと\(remaining)回の同期で詳細な年間分析が始まります")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
+            } else {
+                Image(systemName: "calendar.badge.exclamationmark")
+                    .font(.system(size: 50))
+                    .foregroundStyle(.pink.opacity(0.5))
+                Text("\(String(viewModel.selectedYear))年のデータはまだありません")
+                    .font(.headline)
+                Text("音楽を聴くと履歴が蓄積されます")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
         }
         .frame(maxWidth: .infinity)
         .padding(40)
@@ -175,6 +198,7 @@ struct YearlyReportView: View {
                             Text(rankLabel(index))
                                 .font(.title3)
                                 .frame(width: 30)
+                            TrackArtworkView(track: track, size: 40)
                             VStack(alignment: .leading, spacing: 2) {
                                 Text(track.title)
                                     .font(.subheadline.bold())
@@ -193,7 +217,7 @@ struct YearlyReportView: View {
                         .padding(.horizontal)
                     }
                     .buttonStyle(.plain)
-                    if index < 4 { Divider().padding(.leading, 56) }
+                    if index < 4 { Divider().padding(.leading, 100) }
                 }
             }
             .background(Color(.secondarySystemBackground))

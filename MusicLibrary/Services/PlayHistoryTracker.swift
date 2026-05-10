@@ -36,10 +36,24 @@ final class PlayHistoryTracker: ObservableObject {
 
     static let batchSaveSize = 500
 
-    private let backfilledKey = "MusicLibrary.HasBackfilled"
-    private var hasBackfilled: Bool {
-        get { UserDefaults.standard.bool(forKey: backfilledKey) }
-        set { UserDefaults.standard.set(newValue, forKey: backfilledKey) }
+    private let initialSnapshotKey = "MusicLibrary.HasInitialSnapshot"
+    private var hasInitialSnapshot: Bool {
+        get { UserDefaults.standard.bool(forKey: initialSnapshotKey) }
+        set { UserDefaults.standard.set(newValue, forKey: initialSnapshotKey) }
+    }
+
+    private let diffSyncCountKey = "MusicLibrary.DiffSyncCount"
+    var diffSyncCount: Int {
+        get { UserDefaults.standard.integer(forKey: diffSyncCountKey) }
+        set { UserDefaults.standard.set(newValue, forKey: diffSyncCountKey) }
+    }
+
+    static let lastSyncDateKey = "MusicLibrary.LastSyncDate"
+    static let lastSyncSongCountKey = "MusicLibrary.LastSyncSongCount"
+    static let lastSyncNewHistoryKey = "MusicLibrary.LastSyncNewHistory"
+
+    var historyAccuracyLevel: HistoryAccuracyLevel {
+        HistoryAccuracyLevel.level(for: diffSyncCount)
     }
 
     init(context: NSManagedObjectContext = PersistenceController.shared.container.viewContext) {
@@ -76,26 +90,29 @@ final class PlayHistoryTracker: ObservableObject {
             )
         }
 
-        let needsBackfill = !hasBackfilled
-        print("🔄 同期モード: \(needsBackfill ? "初回バックフィル" : "差分同期")")
-
-        if needsBackfill {
-            await performInitialBackfillBatched(snapshots: snapshots)
-            hasBackfilled = true
+        if !hasInitialSnapshot {
+            print("📸 初回起動: スナップショットのみ記録（履歴生成なし）")
+            await performInitialSnapshotOnly(snapshots: snapshots)
+            hasInitialSnapshot = true
         } else {
+            print("🔄 差分同期")
             await performIncrementalSyncBatched(snapshots: snapshots)
+            diffSyncCount += 1
         }
 
         await MainActor.run {
             self.context.refreshAllObjects()
             self.lastSyncCompletedAt = Date()
             self.syncProgress = nil
+            UserDefaults.standard.set(Date().timeIntervalSince1970, forKey: Self.lastSyncDateKey)
+            UserDefaults.standard.set(snapshots.count, forKey: Self.lastSyncSongCountKey)
         }
     }
 
     func resetAndRebuildHistory() async {
         print("🔄 履歴リセット開始")
-        hasBackfilled = false
+        hasInitialSnapshot = false
+        diffSyncCount = 0
 
         let bgContext = container.newBackgroundContext()
         await bgContext.perform {
@@ -115,84 +132,41 @@ final class PlayHistoryTracker: ObservableObject {
         print("✅ 履歴リセット完了")
     }
 
-    private func performInitialBackfillBatched(snapshots: [MediaItemSnapshot]) async {
-        let sorted = snapshots.sorted { $0.playCount > $1.playCount }
-        let total = sorted.count
+    // 初回起動: playCount のスナップショットのみ記録。PlayHistoryEntity は生成しない。
+    private func performInitialSnapshotOnly(snapshots: [MediaItemSnapshot]) async {
+        let total = snapshots.count
         var processed = 0
-        var totalCreated = 0
+        let chunkSize = 200
 
-        // 履歴件数が増えるためチャンクサイズを縮小
-        let trackChunkSize = 50
-
-        for chunkStart in stride(from: 0, to: sorted.count, by: trackChunkSize) {
-            let chunkEnd = min(chunkStart + trackChunkSize, sorted.count)
-            let chunk = Array(sorted[chunkStart..<chunkEnd])
+        for chunkStart in stride(from: 0, to: snapshots.count, by: chunkSize) {
+            let chunkEnd = min(chunkStart + chunkSize, snapshots.count)
+            let chunk = Array(snapshots[chunkStart..<chunkEnd])
 
             let bgContext = container.newBackgroundContext()
             bgContext.mergePolicy = NSMergeByPropertyObjectTrumpMergePolicy
 
-            let createdInChunk = await withCheckedContinuation { (continuation: CheckedContinuation<Int, Never>) in
+            await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
                 bgContext.perform {
-                    let count = Self.processBackfillChunk(snapshots: chunk, in: bgContext)
+                    for snapshot in chunk {
+                        Self.updateSnapshot(trackID: snapshot.trackID, count: snapshot.playCount, in: bgContext)
+                    }
                     do {
                         try bgContext.save()
                         bgContext.reset()
                     } catch {
-                        print("⚠️ チャンク保存失敗: \(error)")
+                        print("⚠️ スナップショット保存失敗: \(error)")
                     }
-                    continuation.resume(returning: count)
+                    continuation.resume()
                 }
             }
 
-            totalCreated += createdInChunk
             processed += chunk.count
-
             await MainActor.run {
                 self.syncProgress = SyncProgress(processed: processed, total: total)
             }
-
-            if processed % 500 == 0 || processed == total {
-                print("📦 進捗: \(processed)/\(total) (累計\(totalCreated)件)")
-            }
         }
 
-        print("✅ バックフィル完了: 合計\(totalCreated)件の履歴を作成")
-    }
-
-    private static func processBackfillChunk(
-        snapshots: [MediaItemSnapshot],
-        in context: NSManagedObjectContext
-    ) -> Int {
-        var created = 0
-
-        for snapshot in snapshots {
-            updateSnapshot(trackID: snapshot.trackID, count: snapshot.playCount, in: context)
-
-            guard snapshot.playCount > 0 else { continue }
-
-            let existingRequest = NSFetchRequest<PlayHistoryEntity>(entityName: "PlayHistoryEntity")
-            existingRequest.predicate = NSPredicate(format: "trackID == %@", snapshot.trackID)
-            let existingCount = (try? context.count(for: existingRequest)) ?? 0
-
-            if existingCount > 0 { continue }
-
-            let entriesToCreate = min(Int(snapshot.playCount), maxHistoryPerTrack)
-
-            for i in 0..<entriesToCreate {
-                let entry = PlayHistoryEntity(context: context)
-                entry.trackID = snapshot.trackID
-                entry.title = snapshot.title
-                entry.artistName = snapshot.artistName
-                entry.albumTitle = snapshot.albumTitle
-                entry.duration = snapshot.duration > 0 ? snapshot.duration : 180
-                entry.isLocalAsset = snapshot.isLocalAsset
-                entry.playCountSnapshot = snapshot.playCount - Int32(i)
-                entry.playedAt = snapshot.lastPlayedDate.addingTimeInterval(-Double(i) * 1800)
-            }
-            created += entriesToCreate
-        }
-
-        return created
+        print("✅ 初回スナップショット完了: \(total)件")
     }
 
     private func performIncrementalSyncBatched(snapshots: [MediaItemSnapshot]) async {
@@ -250,6 +224,10 @@ final class PlayHistoryTracker: ObservableObject {
                 } catch {
                     print("⚠️ 同期保存失敗: \(error)")
                 }
+            }
+            let count = newHistoryCount
+            Task { @MainActor in
+                UserDefaults.standard.set(count, forKey: Self.lastSyncNewHistoryKey)
             }
         }
     }

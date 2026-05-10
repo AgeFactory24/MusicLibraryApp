@@ -28,17 +28,10 @@ struct RankingRowView: View {
             TrackArtworkView(track: track, size: 44)
 
             VStack(alignment: .leading, spacing: 2) {
-                HStack(spacing: 6) {
-                    Text(track.title)
-                        .font(.subheadline.bold())
-                        .lineLimit(1)
-                        .foregroundStyle(.primary)
-                    if track.isLocalAsset {
-                        Image(systemName: "opticaldisc")
-                            .font(.caption2)
-                            .foregroundStyle(.blue)
-                    }
-                }
+                Text(track.title)
+                    .font(.subheadline.bold())
+                    .lineLimit(1)
+                    .foregroundStyle(.primary)
                 Text(track.artistName)
                     .font(.caption)
                     .foregroundStyle(.secondary)

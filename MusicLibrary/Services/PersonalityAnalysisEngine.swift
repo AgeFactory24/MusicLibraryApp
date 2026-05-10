@@ -83,6 +83,23 @@ enum Personality: String, CaseIterable {
         }
     }
 
+    var catchphrase: String {
+        switch self {
+        case .legend:          return "圧倒的な再生数が、すべてを語る"
+        case .obsessedFan:     return "推しがいれば、それだけでいい"
+        case .singleFocus:     return "一曲に宇宙がある"
+        case .heavyRotator:    return "同じ曲が、今日も違う顔を見せる"
+        case .explorer:        return "まだ聴いていない音楽が、無限にある"
+        case .loyalListener:   return "信じたサウンドに、ぶれない芯"
+        case .growingListener: return "音楽と共に、自分もアップデートされる"
+        case .nostalgic:       return "名曲には、帰れる場所がある"
+        case .genreAddict:     return "このジャンルが、自分の言語だ"
+        case .balanced:        return "あらゆる音楽が、等しく美しい"
+        case .collector:       return "CDを手に取る瞬間、音楽が始まる"
+        case .streamingFan:    return "33億曲の海を、自由に泳ぐ"
+        }
+    }
+
     func toListenerPersonality() -> ListenerPersonality {
         ListenerPersonality(
             title: rawValue,

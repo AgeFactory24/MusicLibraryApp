@@ -67,31 +67,6 @@ struct MoreView: View {
 
                 Section {
                     NavigationLink {
-                        CDvsStreamingView()
-                            .environmentObject(libraryVM)
-                    } label: {
-                        MoreItemRow(
-                            icon: "opticaldisc",
-                            color: .blue,
-                            title: "CD vs Apple Music",
-                            subtitle: "音源別の再生統計を比較"
-                        )
-                    }
-
-                    NavigationLink {
-                        TimeOfDayView()
-                    } label: {
-                        MoreItemRow(
-                            icon: "clock.fill",
-                            color: .indigo,
-                            title: "時間帯分析",
-                            subtitle: "参考データ（推定値）"
-                        )
-                    }
-                }
-
-                Section {
-                    NavigationLink {
                         SettingsView()
                     } label: {
                         MoreItemRow(
@@ -99,6 +74,20 @@ struct MoreView: View {
                             color: .gray,
                             title: "設定",
                             subtitle: "通知設定など"
+                        )
+                    }
+                }
+
+                Section {
+                    NavigationLink {
+                        DeveloperModeView()
+                            .environmentObject(libraryVM)
+                    } label: {
+                        MoreItemRow(
+                            icon: "hammer.fill",
+                            color: .indigo,
+                            title: "開発者モード",
+                            subtitle: "内部デバッグ・確認用"
                         )
                     }
                 }

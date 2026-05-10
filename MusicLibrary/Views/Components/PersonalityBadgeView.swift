@@ -812,6 +812,7 @@ struct PersonalityBadgeView: View {
 
 struct PersonalityInlineRow: View {
     let personality: ListenerPersonality
+    var reason: String = ""
     var badgeSize: CGFloat = 72
 
     var body: some View {
@@ -827,6 +828,13 @@ struct PersonalityInlineRow: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
                     .lineLimit(2)
+                if !reason.isEmpty {
+                    Text(reason)
+                        .font(.caption)
+                        .foregroundStyle(.pink.opacity(0.85))
+                        .lineLimit(3)
+                        .padding(.top, 2)
+                }
             }
             Spacer(minLength: 0)
         }

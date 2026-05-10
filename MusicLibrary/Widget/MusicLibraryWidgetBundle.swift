@@ -13,7 +13,6 @@ struct MusicLibraryWidgetBundle: WidgetBundle {
         TodayPlaysWidget()
         WeeklyTopWidget()
         MonthlySummaryWidget()
-        HourlyHeatmapWidget()
         // Live Activity / Dynamic Island は削除
     }
 }

@@ -18,6 +18,7 @@ struct MonthlyReport {
     let comparedToLastMonth: Double
     let dailyCounts: [Int: Int]
     let personality: ListenerPersonality
+    let personalityReason: String
     let genreData: [GenreData]
     let topDay: TopDay?
 
@@ -184,7 +185,7 @@ final class MonthlyReportViewModel: ObservableObject {
             topDay = nil
         }
 
-        let personality = calculatePersonality(history: history, libraryTracks: libraryTracks)
+        let (personality, personalityReason) = calculatePersonality(history: history, libraryTracks: libraryTracks)
         let genreData = buildGenreData(history: history, libraryTracks: libraryTracks)
 
         report = MonthlyReport(
@@ -198,6 +199,7 @@ final class MonthlyReportViewModel: ObservableObject {
             comparedToLastMonth: comparison,
             dailyCounts: dailyCounts,
             personality: personality,
+            personalityReason: personalityReason,
             genreData: genreData,
             topDay: topDay
         )
@@ -210,18 +212,17 @@ final class MonthlyReportViewModel: ObservableObject {
     private func calculatePersonality(
         history: [PlayHistoryEntry],
         libraryTracks: [Track]
-    ) -> ListenerPersonality {
-        guard !history.isEmpty else {
-            return ListenerPersonality(
-                title: "ニューカマー",
-                description: "これから音楽の旅が始まります",
-                emoji: "🎵",
-                gradient: [.purple, .pink]
-            )
-        }
+    ) -> (ListenerPersonality, String) {
+        let fallback = ListenerPersonality(
+            title: "ニューカマー",
+            description: "これから音楽の旅が始まります",
+            emoji: "🎵",
+            gradient: [.purple, .pink]
+        )
+        guard !history.isEmpty else { return (fallback, "") }
         let metrics = PersonalityAnalysisEngine.buildMetrics(from: history, libraryTracks: libraryTracks)
         let tags = PersonalityAnalysisEngine.evaluate(metrics: metrics, topCount: 1)
-        return tags.first?.personality.toListenerPersonality()
-            ?? ListenerPersonality(title: "ニューカマー", description: "これから音楽の旅が始まります", emoji: "🎵", gradient: [.purple, .pink])
+        guard let tag = tags.first else { return (fallback, "") }
+        return (tag.personality.toListenerPersonality(), tag.reason)
     }
 }

@@ -6,16 +6,17 @@
 	<array>
 		<string>com.yourcompany.MusicLibrary.refresh</string>
 	</array>
-	<key>LSApplicationQueriesSchemes</key>
-	<array>
-		<string>instagram-stories</string>
-		<string>instagram</string>
-	</array>
 	<key>NSUserNotificationsUsageDescription</key>
 	<string>週次・月次レポートの完成や、久しぶりのお気に入り楽曲をお知らせします</string>
 	<key>UIBackgroundModes</key>
 	<array>
 		<string>fetch</string>
+	</array>
+	<key>FacebookAppID</key>
+	<string>YOUR_FACEBOOK_APP_ID</string>
+	<key>LSApplicationQueriesSchemes</key>
+	<array>
+		<string>instagram-stories</string>
 	</array>
 </dict>
 </plist>

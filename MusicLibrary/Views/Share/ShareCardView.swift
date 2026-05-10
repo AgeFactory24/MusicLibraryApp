@@ -184,8 +184,12 @@ struct ShareCard: View {
 
                 // フッター
                 HStack {
-                    Image(systemName: "music.note")
-                        .font(.system(size: 22))
+                    Image("AppLogoImage")
+                        .resizable()
+                        .scaledToFit()
+                        .frame(width: 28, height: 28)
+                        .clipShape(RoundedRectangle(cornerRadius: 7, style: .continuous))
+                        .shadow(color: .black.opacity(0.2), radius: 3, y: 1)
                     Text("MusicLibrary")
                         .font(.system(size: 16, weight: .heavy))
                     Spacer()

@@ -18,6 +18,7 @@ struct YearlyReport {
     let monthlyCounts: [Int: Int]
     let topMonth: TopMonth?
     let personality: ListenerPersonality
+    let personalityReason: String
     let genreData: [GenreData]
 
     var yearLabel: String {
@@ -186,7 +187,7 @@ final class YearlyReportViewModel: ObservableObject {
             topMonth = nil
         }
 
-        let personality = calculatePersonality(history: history, libraryTracks: libraryTracks)
+        let (personality, personalityReason) = calculatePersonality(history: history, libraryTracks: libraryTracks)
         let genreData = buildGenreData(history: history, libraryTracks: libraryTracks)
 
         report = YearlyReport(
@@ -200,6 +201,7 @@ final class YearlyReportViewModel: ObservableObject {
             monthlyCounts: monthlyCounts,
             topMonth: topMonth,
             personality: personality,
+            personalityReason: personalityReason,
             genreData: genreData
         )
     }
@@ -211,13 +213,17 @@ final class YearlyReportViewModel: ObservableObject {
     private func calculatePersonality(
         history: [PlayHistoryEntry],
         libraryTracks: [Track]
-    ) -> ListenerPersonality {
-        guard !history.isEmpty else {
-            return ListenerPersonality(title: "ニューカマー", description: "これから音楽の旅が始まります", emoji: "🎵", gradient: [.purple, .pink])
-        }
+    ) -> (ListenerPersonality, String) {
+        let fallback = ListenerPersonality(
+            title: "ニューカマー",
+            description: "これから音楽の旅が始まります",
+            emoji: "🎵",
+            gradient: [.purple, .pink]
+        )
+        guard !history.isEmpty else { return (fallback, "") }
         let metrics = PersonalityAnalysisEngine.buildMetrics(from: history, libraryTracks: libraryTracks)
         let tags = PersonalityAnalysisEngine.evaluate(metrics: metrics, topCount: 1)
-        return tags.first?.personality.toListenerPersonality()
-            ?? ListenerPersonality(title: "ニューカマー", description: "これから音楽の旅が始まります", emoji: "🎵", gradient: [.purple, .pink])
+        guard let tag = tags.first else { return (fallback, "") }
+        return (tag.personality.toListenerPersonality(), tag.reason)
     }
 }
