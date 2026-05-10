@@ -746,10 +746,16 @@ private struct PersonalityPage: View {
                     .font(.title3)
                     .foregroundStyle(.white.opacity(0.9))
 
-                Text(data.personality.emoji)
-                    .font(.system(size: 100))
-                    .scaleEffect(animate ? 1 : 0.5)
-                    .opacity(animate ? 1 : 0)
+                Group {
+                    if let p = Personality.allCases.first(where: { $0.rawValue == data.personality.title }) {
+                        PersonalityIconSymbol(personality: p, size: 140, animated: true)
+                    } else {
+                        Text(data.personality.emoji)
+                            .font(.system(size: 100))
+                    }
+                }
+                .scaleEffect(animate ? 1 : 0.5)
+                .opacity(animate ? 1 : 0)
 
                 Text(data.personality.title)
                     .font(.system(size: 40, weight: .black, design: .rounded))

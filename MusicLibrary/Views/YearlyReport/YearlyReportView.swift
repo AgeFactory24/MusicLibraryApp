@@ -20,6 +20,11 @@ struct YearlyReportView: View {
 
                 if let report = viewModel.report, report.totalPlayCount > 0 {
                     summaryCard(report: report)
+                    PersonalityInlineRow(personality: report.personality)
+                    GenreReportSection(
+                        genreData: report.genreData,
+                        totalPlayCount: report.totalPlayCount
+                    )
                     monthlyChart(report: report)
                     topTracksSection(report: report)
                     topArtistsSection(report: report)

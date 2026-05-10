@@ -36,31 +36,32 @@ struct TodayPlaysProvider: TimelineProvider {
         completion(timeline)
     }
 
-    /// 「今日」= 今日の00:00 〜 現在
+    /// 累計: playCountSnapshot（Apple Music実値）の合計と全期間TOPトラック
     private func loadEntry() -> TodayPlaysEntry {
-        let calendar = Calendar.current
-        let now = Date()
-        let startOfDay = calendar.startOfDay(for: now)
-
         let context = PersistenceController.shared.container.viewContext
-
         let request = NSFetchRequest<PlayHistoryEntity>(entityName: "PlayHistoryEntity")
-        request.predicate = NSPredicate(
-            format: "playedAt >= %@ AND playedAt <= %@",
-            startOfDay as NSDate, now as NSDate
-        )
+        let entities = (try? context.fetch(request)) ?? []
 
-        let entries = (try? context.fetch(request)) ?? []
-        let count = entries.count
+        let grouped = Dictionary(grouping: entities, by: \.trackID)
 
-        let grouped = Dictionary(grouping: entries, by: \.trackID)
-        let top = grouped.max(by: { $0.value.count < $1.value.count })?.value.first
+        var totalPlayCount: Int = 0
+        var topEntity: PlayHistoryEntity?
+        var topCount: Int32 = 0
+
+        for (_, list) in grouped {
+            guard let best = list.max(by: { $0.playCountSnapshot < $1.playCountSnapshot }) else { continue }
+            totalPlayCount += Int(best.playCountSnapshot)
+            if best.playCountSnapshot > topCount {
+                topCount = best.playCountSnapshot
+                topEntity = best
+            }
+        }
 
         return TodayPlaysEntry(
-            date: now,
-            playCount: count,
-            topTrackTitle: top?.title ?? "再生なし",
-            topArtistName: top?.artistName ?? ""
+            date: Date(),
+            playCount: totalPlayCount,
+            topTrackTitle: topEntity?.title ?? "再生なし",
+            topArtistName: topEntity?.artistName ?? ""
         )
     }
 }
@@ -82,7 +83,7 @@ struct TodayPlaysWidgetView: View {
             HStack {
                 Image(systemName: "music.note")
                     .font(.caption.bold())
-                Text("TODAY")
+                Text("TOTAL")
                     .font(.system(size: 10, weight: .heavy))
                     .tracking(2)
                 Spacer()
@@ -112,7 +113,7 @@ struct TodayPlaysWidgetView: View {
     private var mediumView: some View {
         HStack(spacing: 16) {
             VStack(alignment: .leading, spacing: 4) {
-                Text("TODAY")
+                Text("TOTAL")
                     .font(.system(size: 10, weight: .heavy))
                     .tracking(2)
                     .foregroundStyle(.pink)
@@ -128,7 +129,7 @@ struct TodayPlaysWidgetView: View {
             Spacer()
 
             VStack(alignment: .leading, spacing: 4) {
-                Text("もっとも聴いた曲")
+                Text("もっとも聴いた曲（累計）")
                     .font(.caption2)
                     .foregroundStyle(.secondary)
                 Text(entry.topTrackTitle)
@@ -155,8 +156,8 @@ struct TodayPlaysWidget: Widget {
         StaticConfiguration(kind: "TodayPlaysWidget", provider: TodayPlaysProvider()) { entry in
             TodayPlaysWidgetView(entry: entry)
         }
-        .configurationDisplayName("今日の再生")
-        .description("今日聴いた音楽を表示します")
+        .configurationDisplayName("累計再生数")
+        .description("ライブラリ全体の累計再生数とTOP楽曲を表示します")
         .supportedFamilies([.systemSmall, .systemMedium])
     }
 }

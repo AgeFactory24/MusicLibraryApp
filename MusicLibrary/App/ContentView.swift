@@ -6,7 +6,7 @@
 import SwiftUI
 
 enum AppTab: Int, Hashable {
-    case home, ranking, monthly, timeOfDay, more
+    case home, ranking, monthly, more
 }
 
 struct ContentView: View {
@@ -60,10 +60,6 @@ struct MainTabView: View {
             MonthlyReportView()
                 .tabItem { Label("月別", systemImage: "calendar") }
                 .tag(AppTab.monthly)
-
-            TimeOfDayView()
-                .tabItem { Label("時間帯", systemImage: "clock.fill") }
-                .tag(AppTab.timeOfDay)
 
             MoreView()
                 .tabItem { Label("more", systemImage: "ellipsis.circle.fill") }

@@ -15,6 +15,7 @@ struct TimeOfDayView: View {
             ScrollView {
                 VStack(spacing: 20) {
                     if let data = viewModel.data, !data.hourlyCounts.isEmpty {
+                        EstimatedDataBanner()
                         peakCards(data: data)
                         hourlyChart(data: data)
                         weekdayChart(data: data)
@@ -118,6 +119,34 @@ struct TimeOfDayView: View {
             .padding()
             .background(Color(.secondarySystemBackground))
             .clipShape(RoundedRectangle(cornerRadius: 16))
+            .padding(.horizontal)
+        }
+    }
+
+    // MARK: - 精度注記バナー（改善-1）
+
+    /// Apple Music API の制約により playedAt が推定値であることをユーザーに明示する。
+    private struct EstimatedDataBanner: View {
+        var body: some View {
+            HStack(spacing: 10) {
+                Image(systemName: "info.circle.fill")
+                    .foregroundStyle(.orange)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("このデータは推定値です")
+                        .font(.caption.bold())
+                        .foregroundStyle(.primary)
+                    Text("Apple Music の制約により、再生時刻は lastPlayedDate から逆算した推定値です。時間帯・曜日の傾向は参考としてご活用ください。")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                }
+            }
+            .padding(12)
+            .background(Color.orange.opacity(0.08))
+            .overlay(
+                RoundedRectangle(cornerRadius: 12)
+                    .stroke(Color.orange.opacity(0.3), lineWidth: 1)
+            )
+            .clipShape(RoundedRectangle(cornerRadius: 12))
             .padding(.horizontal)
         }
     }

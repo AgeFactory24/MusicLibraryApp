@@ -62,6 +62,8 @@ private struct LocalVsStreamingSection: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             SectionHeader(title: "音源の内訳")
+
+            // 曲数カード
             HStack(spacing: 12) {
                 StatCardView(
                     title: "CD取り込み",
@@ -78,17 +80,29 @@ private struct LocalVsStreamingSection: View {
             }
             .padding(.horizontal)
 
-            GeometryReader { geo in
-                HStack(spacing: 0) {
-                    Rectangle()
-                        .fill(.blue)
-                        .frame(width: geo.size.width * stats.localAssetRatio)
-                    Rectangle()
-                        .fill(.pink)
+            // 再生数ベースの比率バー（改善-5: 曲数ベースから再生数ベースに統一）
+            VStack(alignment: .leading, spacing: 6) {
+                HStack {
+                    Label("再生数の内訳", systemImage: "play.fill")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    Spacer()
+                    Text("CD \(Int(stats.localPlayRatio * 100))% / Apple Music \(Int((1 - stats.localPlayRatio) * 100))%")
+                        .font(.caption.monospacedDigit())
+                        .foregroundStyle(.secondary)
                 }
+                GeometryReader { geo in
+                    HStack(spacing: 0) {
+                        Rectangle()
+                            .fill(.blue)
+                            .frame(width: geo.size.width * stats.localPlayRatio)
+                        Rectangle()
+                            .fill(.pink)
+                    }
+                }
+                .frame(height: 8)
+                .clipShape(Capsule())
             }
-            .frame(height: 8)
-            .clipShape(Capsule())
             .padding(.horizontal)
         }
     }

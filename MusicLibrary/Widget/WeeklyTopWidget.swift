@@ -2,7 +2,7 @@
 //  WeeklyTopWidget.swift
 //  MusicLibraryWidget
 //
-//  「今週」= 今週月曜0:00 〜 現在
+//  全期間の再生数（playCountSnapshot）に基づく高精度ALL TIME TOP3
 //
 
 import WidgetKit
@@ -40,37 +40,28 @@ struct WeeklyTopProvider: TimelineProvider {
         completion(Timeline(entries: [entry], policy: .after(nextUpdate)))
     }
 
-    /// 「今週」= 月曜0:00 〜 現在
+    /// 全期間: playCountSnapshot（Apple Music実値）でソートした高精度TOP
     private func loadEntry() -> WeeklyTopEntry {
-        var calendar = Calendar.current
-        calendar.firstWeekday = 2  // 月曜始まり
-
-        let now = Date()
-        let startOfWeek = calendar.dateInterval(of: .weekOfYear, for: now)?.start ?? now
-
         let context = PersistenceController.shared.container.viewContext
         let request = NSFetchRequest<PlayHistoryEntity>(entityName: "PlayHistoryEntity")
-        request.predicate = NSPredicate(
-            format: "playedAt >= %@ AND playedAt <= %@",
-            startOfWeek as NSDate, now as NSDate
-        )
 
-        let entries = (try? context.fetch(request)) ?? []
-        let grouped = Dictionary(grouping: entries, by: \.trackID)
+        let entities = (try? context.fetch(request)) ?? []
+        let grouped = Dictionary(grouping: entities, by: \.trackID)
 
         let top = grouped
             .compactMap { _, list -> WeeklyTopTrack? in
-                guard let first = list.first else { return nil }
+                guard let best = list.max(by: { $0.playCountSnapshot < $1.playCountSnapshot }),
+                      best.playCountSnapshot > 0 else { return nil }
                 return WeeklyTopTrack(
-                    title: first.title,
-                    artist: first.artistName,
-                    count: list.count
+                    title: best.title,
+                    artist: best.artistName,
+                    count: Int(best.playCountSnapshot)
                 )
             }
             .sorted { $0.count > $1.count }
             .prefix(3)
 
-        return WeeklyTopEntry(date: now, topTracks: Array(top))
+        return WeeklyTopEntry(date: Date(), topTracks: Array(top))
     }
 }
 
@@ -82,7 +73,7 @@ struct WeeklyTopWidgetView: View {
             HStack {
                 Image(systemName: "chart.bar.fill")
                     .font(.caption.bold())
-                Text("THIS WEEK")
+                Text("ALL TIME")
                     .font(.system(size: 10, weight: .heavy))
                     .tracking(2)
                 Spacer()
@@ -132,8 +123,8 @@ struct WeeklyTopWidget: Widget {
         StaticConfiguration(kind: "WeeklyTopWidget", provider: WeeklyTopProvider()) { entry in
             WeeklyTopWidgetView(entry: entry)
         }
-        .configurationDisplayName("今週TOP3")
-        .description("今週の月曜以降のTOP3楽曲を表示")
+        .configurationDisplayName("ALL TIME TOP3")
+        .description("全期間の再生数に基づくTOP3楽曲を表示")
         .supportedFamilies([.systemSmall, .systemMedium])
     }
 }

@@ -14,8 +14,19 @@ enum RankingType: String, CaseIterable {
 }
 
 enum RankingPeriod: String, CaseIterable {
-    case allTime = "全期間"
-    case recentMonth = "直近30日"
+    case allTime      = "全期間"
+    case recentWeek   = "7日"
+    case recentMonth  = "30日"
+    case recent3Month = "3ヶ月"
+
+    var days: Int? {
+        switch self {
+        case .allTime:      return nil
+        case .recentWeek:   return 7
+        case .recentMonth:  return 30
+        case .recent3Month: return 90
+        }
+    }
 }
 
 @MainActor
@@ -31,11 +42,11 @@ final class RankingViewModel: ObservableObject {
 
     func buildRanking(from tracks: [Track], artists: [Artist], albums: [Album]) {
         let filteredTracks: [Track]
-        if rankingPeriod == .recentMonth {
-            let thirtyDaysAgo = Calendar.current.date(byAdding: .day, value: -30, to: Date()) ?? Date()
+        if let days = rankingPeriod.days {
+            let cutoff = Calendar.current.date(byAdding: .day, value: -days, to: Date()) ?? Date()
             filteredTracks = tracks.filter {
                 guard let date = $0.lastPlayedDate else { return false }
-                return date >= thirtyDaysAgo
+                return date >= cutoff
             }
         } else {
             filteredTracks = tracks

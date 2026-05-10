@@ -7,10 +7,25 @@ import SwiftUI
 
 struct MoreView: View {
     @StateObject private var yearlyVM = YearlyReportViewModel()
+    @EnvironmentObject var libraryVM: LibraryViewModel
 
     var body: some View {
         NavigationStack {
             List {
+                Section {
+                    NavigationLink {
+                        PersonalityAnalysisView()
+                            .environmentObject(libraryVM)
+                    } label: {
+                        MoreItemRow(
+                            icon: "person.crop.circle.badge.checkmark",
+                            color: .pink,
+                            title: "音楽パーソナリティ",
+                            subtitle: "あなたのリスニングスタイルを分析"
+                        )
+                    }
+                }
+
                 Section {
                     NavigationLink {
                         YearlyReportView()
@@ -46,6 +61,31 @@ struct MoreView: View {
                             color: .orange,
                             title: "統計",
                             subtitle: "全体統計とジャンル分析"
+                        )
+                    }
+                }
+
+                Section {
+                    NavigationLink {
+                        CDvsStreamingView()
+                            .environmentObject(libraryVM)
+                    } label: {
+                        MoreItemRow(
+                            icon: "opticaldisc",
+                            color: .blue,
+                            title: "CD vs Apple Music",
+                            subtitle: "音源別の再生統計を比較"
+                        )
+                    }
+
+                    NavigationLink {
+                        TimeOfDayView()
+                    } label: {
+                        MoreItemRow(
+                            icon: "clock.fill",
+                            color: .indigo,
+                            title: "時間帯分析",
+                            subtitle: "参考データ（推定値）"
                         )
                     }
                 }

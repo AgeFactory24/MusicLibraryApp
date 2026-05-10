@@ -184,7 +184,7 @@ final class MonthlyReportViewModel: ObservableObject {
             topDay = nil
         }
 
-        let personality = calculatePersonality(history: history)
+        let personality = calculatePersonality(history: history, libraryTracks: libraryTracks)
         let genreData = buildGenreData(history: history, libraryTracks: libraryTracks)
 
         report = MonthlyReport(
@@ -203,34 +203,14 @@ final class MonthlyReportViewModel: ObservableObject {
         )
     }
 
-    private static let palette: [Color] = [
-        .pink, .purple, .blue, .teal, .green,
-        .yellow, .orange, .red, .indigo, .mint
-    ]
-
     private func buildGenreData(history: [PlayHistoryEntry], libraryTracks: [Track]) -> [GenreData] {
-        let genreMap = Dictionary(uniqueKeysWithValues: libraryTracks.map { ($0.id, $0.genre) })
-
-        var counts: [String: Int] = [:]
-        for entry in history {
-            let genre = genreMap[entry.trackID] ?? "その他"
-            counts[genre, default: 0] += 1
-        }
-
-        let sorted = counts.sorted { $0.value > $1.value }
-
-        return sorted.enumerated().map { index, pair -> GenreData in
-            GenreData(
-                genre: pair.key,
-                playCount: pair.value,
-                trackCount: 0,
-                topArtists: [],
-                color: Self.palette[index % Self.palette.count]
-            )
-        }
+        PersonalityAnalysisEngine.buildGenreData(from: history, libraryTracks: libraryTracks)
     }
 
-    private func calculatePersonality(history: [PlayHistoryEntry]) -> ListenerPersonality {
+    private func calculatePersonality(
+        history: [PlayHistoryEntry],
+        libraryTracks: [Track]
+    ) -> ListenerPersonality {
         guard !history.isEmpty else {
             return ListenerPersonality(
                 title: "ニューカマー",
@@ -239,48 +219,9 @@ final class MonthlyReportViewModel: ObservableObject {
                 gradient: [.purple, .pink]
             )
         }
-
-        let calendar = Calendar.current
-        let totalPlays = history.count
-
-        var hourCounts: [Int: Int] = [:]
-        for entry in history {
-            let hour = calendar.component(.hour, from: entry.playedAt)
-            hourCounts[hour, default: 0] += 1
-        }
-
-        let morningCount = (5...10).reduce(0) { $0 + (hourCounts[$1] ?? 0) }
-        let dayCount = (11...17).reduce(0) { $0 + (hourCounts[$1] ?? 0) }
-        let eveningCount = (18...21).reduce(0) { $0 + (hourCounts[$1] ?? 0) }
-        let nightCount = (22...23).reduce(0) { $0 + (hourCounts[$1] ?? 0) }
-            + (0...4).reduce(0) { $0 + (hourCounts[$1] ?? 0) }
-
-        let topTime = [
-            ("morning", morningCount), ("day", dayCount),
-            ("evening", eveningCount), ("night", nightCount)
-        ].max(by: { $0.1 < $1.1 })?.0 ?? "day"
-
-        let uniqueArtists = Set(history.map(\.artistName)).count
-        let diversityRatio = Double(uniqueArtists) / Double(max(totalPlays, 1))
-        let artistCounts = Dictionary(grouping: history, by: \.artistName).mapValues(\.count)
-        let topArtistShare = Double(artistCounts.values.max() ?? 0) / Double(totalPlays)
-
-        if topArtistShare > 0.4 {
-            return ListenerPersonality(title: "推しが本気", description: "1人のアーティストを愛し抜く一途なリスナー", emoji: "💖", gradient: [.pink, .red])
-        }
-        if diversityRatio > 0.5 {
-            return ListenerPersonality(title: "音楽探検家", description: "新しい音楽を貪欲に探し続ける冒険者", emoji: "🗺", gradient: [.green, .teal])
-        }
-
-        switch topTime {
-        case "morning":
-            return ListenerPersonality(title: "アーリーバード", description: "朝の時間に音楽を楽しむ早起きさん", emoji: "🌅", gradient: [.orange, .yellow])
-        case "evening":
-            return ListenerPersonality(title: "サンセット派", description: "夕暮れと共に音楽に浸るロマンチスト", emoji: "🌆", gradient: [.orange, .pink])
-        case "night":
-            return ListenerPersonality(title: "ナイトオウル", description: "夜の静けさに音楽が寄り添う深夜派", emoji: "🌙", gradient: [.indigo, .purple])
-        default:
-            return ListenerPersonality(title: "デイドリーマー", description: "日中ずっと音楽と共にある人", emoji: "☀️", gradient: [.cyan, .blue])
-        }
+        let metrics = PersonalityAnalysisEngine.buildMetrics(from: history, libraryTracks: libraryTracks)
+        let tags = PersonalityAnalysisEngine.evaluate(metrics: metrics, topCount: 1)
+        return tags.first?.personality.toListenerPersonality()
+            ?? ListenerPersonality(title: "ニューカマー", description: "これから音楽の旅が始まります", emoji: "🎵", gradient: [.purple, .pink])
     }
 }

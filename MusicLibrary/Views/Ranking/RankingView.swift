@@ -20,13 +20,21 @@ struct RankingView: View {
                 .pickerStyle(.segmented)
                 .padding()
 
-                Picker("期間", selection: $rankingVM.rankingPeriod) {
-                    ForEach(RankingPeriod.allCases, id: \.self) { period in
-                        Text(period.rawValue).tag(period)
+                HStack {
+                    Text("期間")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                    Spacer()
+                    Picker("期間", selection: $rankingVM.rankingPeriod) {
+                        ForEach(RankingPeriod.allCases, id: \.self) { period in
+                            Text(period.rawValue).tag(period)
+                        }
                     }
+                    .pickerStyle(.menu)
+                    .tint(.pink)
                 }
-                .pickerStyle(.segmented)
-                .padding([.horizontal, .bottom])
+                .padding(.horizontal)
+                .padding(.bottom, 8)
 
                 List {
                     switch rankingVM.rankingType {

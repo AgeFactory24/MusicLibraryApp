@@ -19,6 +19,11 @@ struct HomeView: View {
                         SummarySection(stats: stats)
                     }
 
+                    if let tag = statsVM.topPersonalityTag {
+                        HomePersonalitySection(tag: tag)
+                            .environmentObject(libraryVM)
+                    }
+
                     TopTracksSection(tracks: rankingVM.topTracks)
 
                     TopArtistsSection(artists: rankingVM.topArtists)
@@ -171,6 +176,53 @@ private struct TopArtistsSection: View {
                 }
                 .padding(.horizontal)
             }
+        }
+    }
+}
+
+// MARK: - パーソナリティバッジ（ホーム画面・改善-3）
+
+private struct HomePersonalitySection: View {
+    let tag: PersonalityTag
+    @EnvironmentObject var libraryVM: LibraryViewModel
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            SectionHeader(title: "あなたのパーソナリティ")
+
+            NavigationLink {
+                PersonalityAnalysisView()
+                    .environmentObject(libraryVM)
+            } label: {
+                HStack(spacing: 16) {
+                    PersonalityBadgeView(
+                        personality: tag.personality.toListenerPersonality(),
+                        size: 72
+                    )
+
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(tag.personality.rawValue)
+                            .font(.headline.bold())
+                            .foregroundStyle(.primary)
+                        Text(tag.reason)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .lineLimit(2)
+                        Text("タップして詳細を見る")
+                            .font(.caption2)
+                            .foregroundStyle(.pink)
+                    }
+                    Spacer()
+                    Image(systemName: "chevron.right")
+                        .foregroundStyle(.secondary)
+                        .font(.caption)
+                }
+                .padding()
+                .background(Color(.secondarySystemBackground))
+                .clipShape(RoundedRectangle(cornerRadius: 16))
+                .padding(.horizontal)
+            }
+            .buttonStyle(.plain)
         }
     }
 }
