@@ -8,28 +8,29 @@ import SwiftUI
 struct PersonalityIconSymbol: View {
     let personality: Personality
     var size: CGFloat = 120
-    var animated: Bool = false
 
-    @State private var phase: Double = 0
-    @State private var spin:  Double = 0
+    @State private var startDate = Date()
 
     var body: some View {
-        ZStack {
-            Circle().fill(Color.black)
-                .frame(width: size, height: size)
-            Circle()
-                .fill(RadialGradient(
-                    colors: [neonColor.opacity(0.22), .clear],
-                    center: .center, startRadius: 0, endRadius: size * 0.5))
-                .frame(width: size, height: size)
-            iconLayer.frame(width: size, height: size)
-        }
-        .clipShape(Circle())
-        .shadow(color: neonColor.opacity(0.6), radius: size * 0.1)
-        .onAppear {
-            guard animated else { return }
-            withAnimation(.easeInOut(duration: 1.6).repeatForever(autoreverses: true)) { phase = 1.0 }
-            withAnimation(.linear(duration: 6.0).repeatForever(autoreverses: false))  { spin  = 360.0 }
+        TimelineView(.animation) { timeline in
+            let elapsed = timeline.date.timeIntervalSince(startDate)
+            // phase: 0→1→0 pulse (period ≈ 3.2s), matches "sound vibration" feel
+            let phase  = (sin(elapsed * .pi / 1.6) + 1) / 2
+            // spin: linear degrees, one rotation every 6s
+            let spin   = elapsed / 6.0 * 360.0
+
+            ZStack {
+                Circle().fill(Color.black)
+                    .frame(width: size, height: size)
+                Circle()
+                    .fill(RadialGradient(
+                        colors: [neonColor.opacity(0.22), .clear],
+                        center: .center, startRadius: 0, endRadius: size * 0.5))
+                    .frame(width: size, height: size)
+                iconLayer(phase: phase, spin: spin).frame(width: size, height: size)
+            }
+            .clipShape(Circle())
+            .shadow(color: neonColor.opacity(0.6), radius: size * 0.1)
         }
     }
 
@@ -52,18 +53,18 @@ struct PersonalityIconSymbol: View {
     }
 
     @ViewBuilder
-    private var iconLayer: some View {
+    private func iconLayer(phase: Double, spin: Double) -> some View {
         switch personality {
         case .legend:          LegendWave(size: size, phase: phase, spin: spin)
         case .obsessedFan:     ObsessedFanWave(size: size, phase: phase)
         case .singleFocus:     SingleFocusWave(size: size, phase: phase)
-        case .heavyRotator:    HeavyRotatorWave(size: size, spin: spin)
+        case .heavyRotator:    HeavyRotatorWave(size: size, phase: phase, spin: spin)
         case .explorer:        ExplorerWave(size: size, phase: phase)
         case .loyalListener:   LoyalListenerWave(size: size, phase: phase)
         case .growingListener: GrowingListenerWave(size: size, phase: phase)
         case .nostalgic:       NostalgicWave(size: size, phase: phase)
         case .genreAddict:     GenreAddictWave(size: size, phase: phase)
-        case .balanced:        BalancedWave(size: size, phase: phase)
+        case .balanced:        BalancedWave(size: size, phase: phase, spin: spin)
         case .collector:       CollectorWave(size: size, phase: phase, spin: spin)
         case .streamingFan:    StreamingFanWave(size: size, phase: phase)
         }
@@ -159,35 +160,37 @@ private struct SingleFocusWave: View {
     }
 }
 
-// MARK: - 4. ヘビロテ職人  ── 発光リングが回転
+// MARK: - 4. ヘビロテ職人  ── 発光リングが回転 + 拍動
 
 private struct HeavyRotatorWave: View {
-    let size: CGFloat; let spin: Double
+    let size: CGFloat; let phase: Double; let spin: Double
     private let c = Color(red: 0.70, green: 0.20, blue: 1.0)
     var body: some View {
         Canvas { ctx, sz in
             let s  = sz.width / 140
             let cx = sz.width / 2, cy = sz.height / 2
+            let p  = CGFloat(phase)
             let sr = CGFloat(spin * .pi / 180)
 
-            // 3 concentric glowing rings at slightly different radii
-            for (r, op): (CGFloat, Double) in [(44, 0.9), (34, 0.55), (24, 0.35)] {
+            // 3 concentric glowing rings — radii pulse with phase
+            for (baseR, op): (CGFloat, Double) in [(44, 0.9), (34, 0.55), (24, 0.35)] {
+                let r = (baseR + p * 2) * s
                 var ring = Path()
-                ring.addArc(center: CGPoint(x: cx, y: cy), radius: r*s,
+                ring.addArc(center: CGPoint(x: cx, y: cy), radius: r,
                             startAngle: .zero, endAngle: .radians(2 * .pi), clockwise: false)
-                glowStroke(&ctx, path: ring, color: c, width: 2.5*s, glow: 0.22, opacity: op)
+                glowStroke(&ctx, path: ring, color: c, width: (2.5 + p)*s, glow: 0.22, opacity: op)
             }
 
             // Dashes on outer ring rotating
-            let outerR: CGFloat = 44 * s
+            let outerR = (44 + p * 2) * s
             for i in 0..<20 {
                 let a = CGFloat(i) * (2 * .pi / 20) + sr
-                let brightness = 0.5 + sin(a * 3) * 0.4
+                let brightness = 0.5 + sin(a * 3 + CGFloat(phase) * 2) * 0.4
                 glowDot(&ctx, x: cx + cos(a)*outerR, y: cy + sin(a)*outerR,
-                        r: 2*s, color: c.opacity(max(0.2, brightness)))
+                        r: (2 + p)*s, color: c.opacity(max(0.2, brightness)))
             }
-            // Center dot
-            glowDot(&ctx, x: cx, y: cy, r: 4*s, color: c.opacity(0.9))
+            // Center dot — pulses
+            glowDot(&ctx, x: cx, y: cy, r: (4 + p*2)*s, color: c.opacity(0.7 + p*0.3))
         }
     }
 }
@@ -354,29 +357,31 @@ private struct GenreAddictWave: View {
     }
 }
 
-// MARK: - 10. バランス型  ── 5色の同心円
+// MARK: - 10. バランス型  ── 5色の同心円が穏やかに拍動・回転
 
 private struct BalancedWave: View {
-    let size: CGFloat; let phase: Double
+    let size: CGFloat; let phase: Double; let spin: Double
     var body: some View {
         Canvas { ctx, sz in
             let s  = sz.width / 140
             let cx = sz.width / 2, cy = sz.height / 2
             let p  = CGFloat(phase)
+            let sr = CGFloat(spin * .pi / 180)
 
-            // 5 concentric rings, rainbow colors
-            let rings: [(r: CGFloat, col: Color)] = [
-                (44, Color(red: 1.0, green: 0.40, blue: 0.40)),
-                (34, Color(red: 1.0, green: 0.80, blue: 0.25)),
-                (25, Color(red: 0.40, green: 0.90, blue: 0.45)),
-                (17, Color(red: 0.35, green: 0.70, blue: 1.00)),
-                (9,  Color(red: 0.80, green: 0.40, blue: 1.00)),
+            // 5 concentric ring-waves, rainbow colors — each ring waves gently
+            let rings: [(r: CGFloat, col: Color, wc: Int)] = [
+                (44, Color(red: 1.0, green: 0.40, blue: 0.40), 6),
+                (34, Color(red: 1.0, green: 0.80, blue: 0.25), 5),
+                (25, Color(red: 0.40, green: 0.90, blue: 0.45), 4),
+                (17, Color(red: 0.35, green: 0.70, blue: 1.00), 3),
+                (9,  Color(red: 0.80, green: 0.40, blue: 1.00), 3),
             ]
-            for ring in rings {
-                let r = ring.r * s * (0.95 + p * 0.06)
-                var path = Path()
-                path.addArc(center: CGPoint(x: cx, y: cy), radius: r,
-                            startAngle: .zero, endAngle: .radians(2 * .pi), clockwise: false)
+            for (i, ring) in rings.enumerated() {
+                let baseR = ring.r * s * (0.95 + p * 0.06)
+                let amp   = ring.r * s * 0.04 * p
+                let phOff = sr * 0.12 * CGFloat(i + 1)
+                let path  = makeRingWavePath(cx: cx, cy: cy, baseR: baseR,
+                                             amplitude: amp, waveCount: ring.wc, phaseOff: phOff)
                 glowStroke(&ctx, path: path, color: ring.col, width: 2.2*s, glow: 0.22, opacity: 0.88)
             }
             glowDot(&ctx, x: cx, y: cy, r: (3+p)*s, color: .white.opacity(0.95))

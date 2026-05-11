@@ -748,7 +748,7 @@ private struct PersonalityPage: View {
 
                 Group {
                     if let p = Personality.allCases.first(where: { $0.rawValue == data.personality.title }) {
-                        PersonalityIconSymbol(personality: p, size: 140, animated: true)
+                        PersonalityIconSymbol(personality: p, size: 140)
                     } else {
                         Text(data.personality.emoji)
                             .font(.system(size: 100))

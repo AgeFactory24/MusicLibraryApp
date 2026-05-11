@@ -251,7 +251,7 @@ struct DeveloperModeView: View {
         } label: {
             VStack(spacing: 4) {
                 ZStack(alignment: .topTrailing) {
-                    PersonalityIconSymbol(personality: p, size: 52, animated: false)
+                    PersonalityIconSymbol(personality: p, size: 52)
                     if isActive {
                         Image(systemName: "eye.fill")
                             .foregroundStyle(.blue)
@@ -344,7 +344,7 @@ struct DeveloperModeView: View {
         } label: {
             VStack(spacing: 4) {
                 ZStack(alignment: .topTrailing) {
-                    PersonalityIconSymbol(personality: p, size: 52, animated: false)
+                    PersonalityIconSymbol(personality: p, size: 52)
                     if isActive {
                         Image(systemName: "checkmark.circle.fill")
                             .foregroundStyle(.green)

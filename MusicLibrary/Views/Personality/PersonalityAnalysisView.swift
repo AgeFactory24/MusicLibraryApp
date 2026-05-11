@@ -165,7 +165,7 @@ private struct HeroCard: View {
                             value: glowPulse
                         )
 
-                    PersonalityIconSymbol(personality: tag.personality, size: 120, animated: !reduceMotion)
+                    PersonalityIconSymbol(personality: tag.personality, size: 120)
                 }
                 .scaleEffect(appeared ? 1 : 0.5)
                 .opacity(appeared ? 1 : 0)
@@ -470,7 +470,7 @@ private struct OtherFacetCard: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(spacing: 10) {
-                PersonalityIconSymbol(personality: tag.personality, size: 44, animated: false)
+                PersonalityIconSymbol(personality: tag.personality, size: 44)
                 VStack(alignment: .leading, spacing: 2) {
                     HStack(spacing: 4) {
                         Text(tag.personality.rawValue)
@@ -602,7 +602,7 @@ private struct PersonalityShareCard: View {
             )
 
             VStack(spacing: 14) {
-                PersonalityIconSymbol(personality: tag.personality, size: 110, animated: false)
+                PersonalityIconSymbol(personality: tag.personality, size: 110)
 
                 Text(tag.personality.rawValue)
                     .font(.system(size: 30, weight: .black, design: .rounded))
