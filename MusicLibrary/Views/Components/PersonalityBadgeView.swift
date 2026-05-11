@@ -160,30 +160,52 @@ private struct SingleFocusWave: View {
     }
 }
 
-// MARK: - 4. ヘビロテ職人  ── 均等分割リングが反転回転する催眠ループ
+// MARK: - 4. ヘビロテ職人  ── 有機的波形ループ（hebirote.html完全移植）
 
 private struct HeavyRotatorWave: View {
     let size: CGFloat; let phase: Double; let spin: Double
-    private let mainC = Color(red: 0.60, green: 0.10, blue: 0.95)   // 紫ネオン
-    private let echoC = Color(red: 0.28, green: 0.12, blue: 0.88)   // 青紫
 
     var body: some View {
         Canvas { ctx, sz in
-            let s   = sz.width / 140
-            let cx  = sz.width / 2, cy = sz.height / 2
-            let rot = CGFloat(spin * .pi / 180)   // 線形増加のみ — 折り返しなし
+            let half  = sz.width / 2
+            let cx    = half, cy = half
+            let coreR = half * 0.50        // HTML: CORE_R=100, 半径=200 → 比率0.5
+            let s     = sz.width / 400     // HTML viewBox=400 基準
+            let t     = CGFloat(spin / 60) // elapsed seconds
 
-            // メインリング: 16セグメント、時計回り
-            drawArcRing(&ctx, cx: cx, cy: cy, r: 44*s, n: 16, coverage: 0.60,
-                        rotation: rot, color: mainC, lw: 2.2*s, glow: 0.16, opacity: 0.93)
+            let purple   = Color(red: 0.58, green: 0.20, blue: 0.93)
+            let lavender = Color(red: 0.75, green: 0.52, blue: 0.99)
+            let coreEdge = Color(red: 0.85, green: 0.53, blue: 0.99)
 
-            // エコー1: 12セグメント、反時計回り（干渉で催眠感）
-            drawArcRing(&ctx, cx: cx, cy: cy, r: 34*s, n: 12, coverage: 0.55,
-                        rotation: -rot * 0.75, color: echoC, lw: 1.6*s, glow: 0.12, opacity: 0.50)
+            // 波形グループを screen blend で重ねて発光効果
+            ctx.blendMode = .screen
 
-            // エコー2: 10セグメント、ゆっくり時計回り — 中央は空白を保つ
-            drawArcRing(&ctx, cx: cx, cy: cy, r: 25*s, n: 10, coverage: 0.50,
-                        rotation: rot * 0.45, color: echoC, lw: 1.1*s, glow: 0.09, opacity: 0.24)
+            // 外側波形 20本: outward (waveDir=+1), stroke-width≈0.9
+            organicRingGroup(&ctx, cx: cx, cy: cy, t: t,
+                             count: 20, baseR: coreR * 1.02, maxAmp: coreR * 0.30,
+                             speedBase: 0.35, waveDir:  1,
+                             color: purple,   lw: s * 2.0, opacity: 0.38, seed: 0)
+
+            // 内側エッジ波形 12本: inward (waveDir=-1), stroke-width≈0.4
+            organicRingGroup(&ctx, cx: cx, cy: cy, t: t,
+                             count: 12, baseR: coreR * 0.99, maxAmp: coreR * 0.08,
+                             speedBase: 0.55, waveDir: -1,
+                             color: lavender, lw: s * 1.0, opacity: 0.38, seed: 20)
+
+            // 内側センター波形 8本: inward, stroke-width≈0.4
+            organicRingGroup(&ctx, cx: cx, cy: cy, t: t,
+                             count: 8, baseR: coreR * 0.92, maxAmp: coreR * 0.15,
+                             speedBase: 0.42, waveDir: -1,
+                             color: lavender, lw: s * 1.0, opacity: 0.30, seed: 32)
+
+            // 中心円: 黒塗りで内側を隠す → HTML core-circle と同等
+            ctx.blendMode = .normal
+            var core = Path()
+            core.addArc(center: CGPoint(x: cx, y: cy), radius: coreR,
+                        startAngle: .zero, endAngle: .radians(2 * .pi), clockwise: false)
+            ctx.fill(core, with: .color(.black))
+            ctx.stroke(core, with: .color(coreEdge.opacity(0.82)), lineWidth: s * 1.8)
+            ctx.stroke(core, with: .color(purple.opacity(0.30)),    lineWidth: s * 7.0)
         }
     }
 }
@@ -495,24 +517,79 @@ private func makeConvergingPath(cx: CGFloat, cy: CGFloat, length: CGFloat, angle
     return path
 }
 
-// MARK: - Arc Ring Helper
+// MARK: - Organic Ring Helpers (hebirote.html移植)
 
-/// n個の円弧セグメントを均等に円形配置して描画する（ヘビロテ職人専用）
-private func drawArcRing(_ ctx: inout GraphicsContext,
-                          cx: CGFloat, cy: CGFloat, r: CGFloat,
-                          n: Int, coverage: CGFloat, rotation: CGFloat,
-                          color: Color, lw: CGFloat, glow: Double, opacity: Double) {
-    let step   = 2 * CGFloat.pi / CGFloat(n)
-    let arcLen = step * coverage
-    for i in 0..<n {
-        let a = CGFloat(i) * step + rotation
-        var seg = Path()
-        seg.addArc(center: CGPoint(x: cx, y: cy), radius: r,
-                   startAngle: .radians(Double(a)),
-                   endAngle:   .radians(Double(a + arcLen)),
-                   clockwise: false)
-        glowStroke(&ctx, path: seg, color: color, width: lw, glow: glow, opacity: opacity)
+/// 複数の有機的波形パスを円形に描画する（hebirote.html の processLayers に対応）
+private func organicRingGroup(_ ctx: inout GraphicsContext,
+                               cx: CGFloat, cy: CGFloat,
+                               t: CGFloat, count: Int,
+                               baseR: CGFloat, maxAmp: CGFloat,
+                               speedBase: CGFloat, waveDir: CGFloat,
+                               color: Color, lw: CGFloat, opacity: Double, seed: Int) {
+    for i in 0..<count {
+        let f = CGFloat(i + seed)
+        // 黄金比で位相を均等分散
+        let ph  = f * CGFloat.pi * 1.6180339887
+        let spd = speedBase + f.truncatingRemainder(dividingBy: 7) * 0.09
+        // 3つのサイン波で有機的な振幅スケールを合成（HTML の seeds に対応）
+        let v0 = 0.28 + f.truncatingRemainder(dividingBy: 5) * 0.13
+        let v1 = 0.52 + f.truncatingRemainder(dividingBy: 7) * 0.08
+        let v2 = 0.81 + f.truncatingRemainder(dividingBy: 4) * 0.08
+        let ds = (sin(t*v0 + f*1.10) + sin(t*v1 + f*2.30) + sin(t*v2 + f*3.70)) / 3
+        let scl = CGFloat((ds + 1) * 0.5)                  // 0→1
+        // 各レイヤー固有のゆっくり自転（HTML の currentRot += rotSpeed に対応）
+        let rotSpd = (f.truncatingRemainder(dividingBy: 11) - 5.0) / 5.0 * 0.048
+        let rot   = t * rotSpd
+        // 波形位相（HTML: time*speed + phaseOffset と -time*speed*0.8）
+        let detPh = t * spd + ph
+        let jitPh = -(t * spd * 0.8) + ph * 1.3
+
+        let path = makeOrganicRingPath(cx: cx, cy: cy, baseR: baseR, maxAmp: maxAmp,
+                                       detPh: detPh, jitPh: jitPh,
+                                       scale: scl, rot: rot, dir: waveDir)
+        ctx.stroke(path, with: .color(color.opacity(opacity)), lineWidth: lw)
     }
+}
+
+/// HTML の getSmoothPath + 波形計算に対応するパス生成
+/// detail = sin(angle*6 + detPh)*0.7, jitter = sin(angle*12 + jitPh)*0.1
+private func makeOrganicRingPath(cx: CGFloat, cy: CGFloat,
+                                  baseR: CGFloat, maxAmp: CGFloat,
+                                  detPh: CGFloat, jitPh: CGFloat,
+                                  scale: CGFloat, rot: CGFloat, dir: CGFloat,
+                                  segs: Int = 20) -> Path {
+    var pts = [CGPoint]()
+    pts.reserveCapacity(segs)
+    for n in 0..<segs {
+        let a  = CGFloat(n) / CGFloat(segs) * 2 * .pi
+        let det = sin(a * 6 + detPh) * 0.7
+        let jit = sin(a * 12 + jitPh) * 0.1
+        let r  = baseR + (det + jit) * maxAmp * scale * dir
+        let fa = a + rot
+        pts.append(CGPoint(x: cx + r * cos(fa), y: cy + r * sin(fa)))
+    }
+    return catmullRomClosed(pts)
+}
+
+/// HTML の getSmoothPath（Catmull-Rom → cubic Bezier）に対応
+private func catmullRomClosed(_ pts: [CGPoint]) -> Path {
+    let n = pts.count
+    guard n >= 2 else { return Path() }
+    var path = Path()
+    path.move(to: pts[0])
+    for i in 0..<n {
+        let p0 = pts[(i - 1 + n) % n]
+        let p1 = pts[i]
+        let p2 = pts[(i + 1) % n]
+        let p3 = pts[(i + 2) % n]
+        let cp1 = CGPoint(x: p1.x + (p2.x - p0.x) / 6,
+                          y: p1.y + (p2.y - p0.y) / 6)
+        let cp2 = CGPoint(x: p2.x - (p3.x - p1.x) / 6,
+                          y: p2.y - (p3.y - p1.y) / 6)
+        path.addCurve(to: p2, control1: cp1, control2: cp2)
+    }
+    path.closeSubpath()
+    return path
 }
 
 // MARK: - Glow Helpers
