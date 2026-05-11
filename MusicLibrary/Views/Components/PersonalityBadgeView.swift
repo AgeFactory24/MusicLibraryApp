@@ -1,18 +1,17 @@
 // PersonalityBadgeView.swift
-// MusicLibrary
+// MusicLibrary — Waveform Universe Design System
 
 import SwiftUI
-import UIKit
 
-// MARK: - メインアイコンビュー
+// MARK: - PersonalityIconSymbol
 
 struct PersonalityIconSymbol: View {
     let personality: Personality
     var size: CGFloat = 120
     var animated: Bool = false
 
-    @State private var phase: Double = 0    // 0→1 autoreverses (pulse)
-    @State private var spin: Double = 0     // 0→360 linear (rotation)
+    @State private var phase: Double = 0
+    @State private var spin: Double = 0
 
     var body: some View {
         ZStack {
@@ -30,889 +29,521 @@ struct PersonalityIconSymbol: View {
         }
         .onAppear {
             guard animated else { return }
-            withAnimation(.easeInOut(duration: 1.6).repeatForever(autoreverses: true)) {
-                phase = 1.0
-            }
-            withAnimation(.linear(duration: 6.0).repeatForever(autoreverses: false)) {
-                spin = 360.0
-            }
+            withAnimation(.easeInOut(duration: 1.6).repeatForever(autoreverses: true)) { phase = 1.0 }
+            withAnimation(.linear(duration: 6.0).repeatForever(autoreverses: false)) { spin = 360.0 }
         }
     }
 
     @ViewBuilder
     private var iconLayer: some View {
         switch personality {
-        case .legend:          LegendIconLayer(size: size, phase: phase)
-        case .obsessedFan:     ObsessedFanIconLayer(size: size, phase: phase)
-        case .singleFocus:     SingleFocusIconLayer(size: size, phase: phase)
-        case .heavyRotator:    HeavyRotatorIconLayer(size: size, spin: spin)
-        case .explorer:        ExplorerIconLayer(size: size, phase: phase, spin: spin)
-        case .loyalListener:   LoyalListenerIconLayer(size: size, phase: phase)
-        case .growingListener: GrowingListenerIconLayer(size: size, phase: phase)
-        case .nostalgic:       NostalgicIconLayer(size: size, spin: spin)
-        case .genreAddict:     GenreAddictIconLayer(size: size, phase: phase)
-        case .balanced:        BalancedIconLayer(size: size, phase: phase)
-        case .collector:       CollectorIconLayer(size: size, spin: spin)
-        case .streamingFan:    StreamingFanIconLayer(size: size, phase: phase)
+        case .legend:          LegendWave(size: size, phase: phase, spin: spin)
+        case .obsessedFan:     ObsessedFanWave(size: size, phase: phase)
+        case .singleFocus:     SingleFocusWave(size: size, phase: phase)
+        case .heavyRotator:    HeavyRotatorWave(size: size, phase: phase, spin: spin)
+        case .explorer:        ExplorerWave(size: size, phase: phase)
+        case .loyalListener:   LoyalListenerWave(size: size, phase: phase)
+        case .growingListener: GrowingListenerWave(size: size, phase: phase)
+        case .nostalgic:       NostalgicWave(size: size, phase: phase)
+        case .genreAddict:     GenreAddictWave(size: size, phase: phase)
+        case .balanced:        BalancedWave(size: size, phase: phase)
+        case .collector:       CollectorWave(size: size, phase: phase, spin: spin)
+        case .streamingFan:    StreamingFanWave(size: size, phase: phase)
         }
     }
 }
 
-// MARK: - レジェンド（光線 + 王冠 + レコード + スパークル）
+// MARK: - 1. レジェンド: 対称円環波形 Gold/White
 
-private struct LegendIconLayer: View {
-    let size: CGFloat
-    let phase: Double
-    var body: some View {
-        Canvas { ctx, sz in
-            let s = sz.width / 140
-            let cx = sz.width / 2
-            let cy = sz.height / 2
-
-            // 16本の光芒（長短交互でより豪華に）
-            for i in 0..<16 {
-                let a = CGFloat(i) * .pi / 8 + CGFloat(phase * 0.3)
-                let r2: CGFloat = i % 2 == 0 ? 60 * s : 48 * s
-                let r1: CGFloat = 18 * s
-                let half: CGFloat = 0.07
-                var ray = Path()
-                ray.move(to: CGPoint(x: cx + cos(a - half) * r1, y: cy + sin(a - half) * r1))
-                ray.addLine(to: CGPoint(x: cx + cos(a) * r2, y: cy + sin(a) * r2))
-                ray.addLine(to: CGPoint(x: cx + cos(a + half) * r1, y: cy + sin(a + half) * r1))
-                ray.closeSubpath()
-                ctx.fill(ray, with: .color(.white.opacity(i % 2 == 0 ? 0.5 : 0.3)))
-            }
-
-            // 中心グロー
-            ctx.fill(ellipseRect(cx: cx, cy: cy, w: 44*s, h: 44*s),
-                     with: .color(.white.opacity(0.12)))
-
-            // 大きな王冠（中央寄り）
-            let cY = cy + 2 * s
-            var crown = Path()
-            crown.move(to: CGPoint(x: cx - 30*s, y: cY + 12*s))
-            crown.addLine(to: CGPoint(x: cx - 30*s, y: cY - 2*s))
-            crown.addLine(to: CGPoint(x: cx - 18*s, y: cY + 6*s))
-            crown.addLine(to: CGPoint(x: cx - 10*s, y: cY - 17*s))
-            crown.addLine(to: CGPoint(x: cx,         y: cY + 5*s))
-            crown.addLine(to: CGPoint(x: cx + 10*s, y: cY - 17*s))
-            crown.addLine(to: CGPoint(x: cx + 18*s, y: cY + 6*s))
-            crown.addLine(to: CGPoint(x: cx + 30*s, y: cY - 2*s))
-            crown.addLine(to: CGPoint(x: cx + 30*s, y: cY + 12*s))
-            crown.closeSubpath()
-            ctx.fill(crown, with: .color(.white.opacity(0.95)))
-            // 王冠のゴールドアウトライン
-            ctx.stroke(crown, with: .color(Color(red:1,green:0.88,blue:0.25).opacity(0.7)), lineWidth: 1.8*s)
-
-            // 王冠ベースバー
-            ctx.fill(roundedRect(cx: cx, cy: cY + 16*s, w: 60*s, h: 9*s, r: 4*s),
-                     with: .color(.white.opacity(0.88)))
-
-            // 宝石 x5（王冠の頂点と中間）
-            let jewConfigs: [(CGFloat, CGFloat)] = [(-10, -4), (0, -6), (10, -4), (-22, 4), (22, 4)]
-            let jewColors: [Color] = [
-                Color(red:1, green:0.85, blue:0.2),
-                Color(red:1, green:0.95, blue:0.4),
-                Color(red:1, green:0.85, blue:0.2),
-                Color(red:0.4, green:0.85, blue:1),
-                Color(red:1, green:0.4, blue:0.6)
-            ]
-            for ((jx, dy), jColor) in zip(jewConfigs, jewColors) {
-                let jSize: CGFloat = jx == 0 ? 8 : 6
-                ctx.fill(ellipseRect(cx: cx + jx*s, cy: cY + dy*s, w: jSize*s, h: jSize*s),
-                         with: .color(jColor.opacity(0.95)))
-            }
-
-            // 王冠の上に大きな5角星（脈打つ）
-            let starY = cY - 36 * s
-            let sOp = 0.7 + phase * 0.3
-            let starOuter = (18.0 + phase * 4.0) * s
-            let starInner = (8.0 + phase * 1.5) * s
-            drawStar5(&ctx, cx: cx, cy: starY, outerR: starOuter, innerR: starInner, opacity: sOp)
-            // 星のグロー
-            ctx.fill(ellipseRect(cx: cx, cy: starY, w: (28 + phase * 8)*s, h: (28 + phase * 8)*s),
-                     with: .color(.white.opacity(0.12 + phase * 0.1)))
-
-            // 角スパークル x5（位相をずらして点滅）
-            let sparkPos: [(CGFloat, CGFloat, CGFloat)] = [
-                (-40, -35, 6), (40, -35, 6), (-42, 18, 4.5), (42, 18, 4.5), (0, 38, 5)
-            ]
-            let sparkOps: [Double] = [
-                0.3 + 0.7 * phase,
-                0.9 - 0.6 * phase,
-                0.2 + 0.8 * (1 - phase),
-                0.5 + 0.5 * phase,
-                0.8 - 0.5 * phase
-            ]
-            for (i, (dx, dy, r)) in sparkPos.enumerated() {
-                drawSparkle(&ctx, x: cx + dx*s, y: cy + dy*s, r: r*s, opacity: sparkOps[i])
-            }
-        }
-    }
-}
-
-// MARK: - 推しが本気（グロー + ハート + スパークル）
-
-private struct ObsessedFanIconLayer: View {
-    let size: CGFloat
-    let phase: Double
-    var body: some View {
-        Canvas { ctx, sz in
-            let s = sz.width / 140
-            let cx = sz.width / 2
-            let cy = sz.height / 2
-
-            // ドキドキ（2拍動）: phase 0→1 中に2回ピーク
-            let beat = abs(sin(phase * .pi * 2))
-
-            // 放射グロー（鼓動に合わせて拡縮）
-            let glowScale = 1.0 + CGFloat(beat) * 0.18
-            let glowRings: [(CGFloat, Double)] = [(50, 0.10), (38, 0.16), (26, 0.20)]
-            for (r, op) in glowRings {
-                ctx.fill(ellipseRect(cx: cx, cy: cy, w: r*s*glowScale*2, h: r*s*glowScale*2),
-                         with: .color(.white.opacity(op + beat * 0.06)))
-            }
-
-            // ハート（鼓動に合わせて拡縮）
-            let hr = (34.0 + beat * 9.0) * s
-            ctx.fill(heartPath(cx: cx, cy: cy + 2*s, r: hr),
-                     with: .color(.white.opacity(0.92)))
-            ctx.fill(heartPath(cx: cx, cy: cy + 2*s, r: hr * 0.65),
-                     with: .color(.pink.opacity(0.55)))
-
-            // スパークル x3（鼓動に合わせて輝く）
-            let sOp = 0.4 + beat * 0.6
-            drawSparkle(&ctx, x: cx - 30*s, y: cy - 26*s, r: 5.5*s, opacity: sOp)
-            drawSparkle(&ctx, x: cx + 30*s, y: cy - 26*s, r: 4.5*s, opacity: sOp * 0.85)
-            drawSparkle(&ctx, x: cx + 33*s, y: cy + 12*s, r: 3.5*s, opacity: sOp * 0.7)
-        }
-    }
-}
-
-// MARK: - 一点集中型（的 + 矢印）
-
-private struct SingleFocusIconLayer: View {
-    let size: CGFloat
-    let phase: Double
-    var body: some View {
-        Canvas { ctx, sz in
-            let s = sz.width / 140
-            let cx = sz.width / 2
-            let cy = sz.height / 2
-
-            // 同心円（的）x4
-            let radii: [(CGFloat, Double)] = [(44, 0.25), (32, 0.35), (20, 0.55), (10, 0.9)]
-            for (r, op) in radii {
-                ctx.fill(ellipseRect(cx: cx, cy: cy, w: r*s*2, h: r*s*2),
-                         with: .color(.white.opacity(op)))
-            }
-
-            // 矢（右上から中心へ突き刺さる動き）
-            let t = CGFloat(phase)
-            let tipTarget = CGPoint(x: cx + 3*s, y: cy + 3*s)
-            let tipFar    = CGPoint(x: cx + 55*s, y: cy - 55*s)
-            let arrowEnd  = CGPoint(x: tipFar.x + (tipTarget.x - tipFar.x) * t,
-                                    y: tipFar.y + (tipTarget.y - tipFar.y) * t)
-            let arrowStart = CGPoint(x: cx + 60*s, y: cy - 60*s)
-            var shaft = Path()
-            shaft.move(to: arrowStart)
-            shaft.addLine(to: arrowEnd)
-            ctx.stroke(shaft, with: .color(.white.opacity(0.9)), lineWidth: 4*s)
-
-            // 矢じり
-            let tipAngle = atan2(arrowEnd.y - arrowStart.y, arrowEnd.x - arrowStart.x)
-            var tip = Path()
-            tip.move(to: arrowEnd)
-            let tipLen = 14 * s
-            let spread = CGFloat.pi / 6
-            tip.addLine(to: CGPoint(x: arrowEnd.x + cos(tipAngle + .pi - spread) * tipLen,
-                                    y: arrowEnd.y + sin(tipAngle + .pi - spread) * tipLen))
-            tip.addLine(to: CGPoint(x: arrowEnd.x + cos(tipAngle + .pi + spread) * tipLen,
-                                    y: arrowEnd.y + sin(tipAngle + .pi + spread) * tipLen))
-            tip.closeSubpath()
-            ctx.fill(tip, with: .color(.white.opacity(0.9)))
-        }
-    }
-}
-
-// MARK: - ヘビロテ職人（ループ矢印 + 音符）
-
-private struct HeavyRotatorIconLayer: View {
-    let size: CGFloat
-    let spin: Double    // 0→360, linear
-    var body: some View {
-        Canvas { ctx, sz in
-            let s = sz.width / 140
-            let cx = sz.width / 2
-            let cy = sz.height / 2
-            let arcR = 30 * s
-
-            // 上半円弧（左→右）
-            var topArc = Path()
-            topArc.addArc(center: CGPoint(x: cx, y: cy),
-                          radius: arcR,
-                          startAngle: .degrees(200), endAngle: .degrees(340), clockwise: false)
-            ctx.stroke(topArc, with: .color(.white.opacity(0.9)), lineWidth: 5*s)
-
-            // 上弧の矢じり（右端 340°）
-            let a340 = CGFloat(340.0 * .pi / 180.0)
-            let topEndX = cx + cos(a340) * arcR
-            let topEndY = cy + sin(a340) * arcR
-            var topTip = Path()
-            topTip.move(to: CGPoint(x: topEndX, y: topEndY))
-            topTip.addLine(to: CGPoint(x: topEndX - 9*s, y: topEndY - 5*s))
-            topTip.addLine(to: CGPoint(x: topEndX - 5*s, y: topEndY + 8*s))
-            topTip.closeSubpath()
-            ctx.fill(topTip, with: .color(.white.opacity(0.9)))
-
-            // 下半円弧（右→左）
-            var botArc = Path()
-            botArc.addArc(center: CGPoint(x: cx, y: cy),
-                          radius: arcR,
-                          startAngle: .degrees(20), endAngle: .degrees(160), clockwise: false)
-            ctx.stroke(botArc, with: .color(.white.opacity(0.9)), lineWidth: 5*s)
-
-            // 下弧の矢じり（左端 160°）
-            let a160 = CGFloat(160.0 * .pi / 180.0)
-            let botEndX = cx + cos(a160) * arcR
-            let botEndY = cy + sin(a160) * arcR
-            var botTip = Path()
-            botTip.move(to: CGPoint(x: botEndX, y: botEndY))
-            botTip.addLine(to: CGPoint(x: botEndX + 9*s, y: botEndY + 5*s))
-            botTip.addLine(to: CGPoint(x: botEndX + 5*s, y: botEndY - 8*s))
-            botTip.closeSubpath()
-            ctx.fill(botTip, with: .color(.white.opacity(0.9)))
-
-            // 中央音符（ループの中心に正しく配置）
-            drawMusicNote(&ctx, cx: cx, cy: cy - 2*s, s: s * 0.92, opacity: 0.97)
-
-            // ∞記号（下部・2円が重なるよう修正）
-            let infY = cy + 38 * s
-            let infR = 10 * s
-            let infGap = 9 * s
-            ctx.stroke(Path(ellipseIn: CGRect(x: cx - infGap - infR, y: infY - infR,
-                                               width: infR*2, height: infR*2)),
-                       with: .color(.white.opacity(0.72)), lineWidth: 2.8*s)
-            ctx.stroke(Path(ellipseIn: CGRect(x: cx + infGap - infR, y: infY - infR,
-                                               width: infR*2, height: infR*2)),
-                       with: .color(.white.opacity(0.72)), lineWidth: 2.8*s)
-        }
-        .rotationEffect(.degrees(spin * 0.5))
-    }
-}
-
-// MARK: - 音楽探検家（コンパス + 音符）
-
-private struct ExplorerIconLayer: View {
+private struct LegendWave: View {
     let size: CGFloat
     let phase: Double
     let spin: Double
     var body: some View {
-        ZStack {
-            // 外枠リングと方位ドット（回転する）
-            Canvas { ctx, sz in
-                let s = sz.width / 140
-                let cx = sz.width / 2
-                let cy = sz.height / 2
+        Canvas { ctx, sz in
+            let s = sz.width / 140
+            let cx = sz.width / 2, cy = sz.height / 2
+            let p = CGFloat(phase)
+            let spinRad = CGFloat(spin * .pi / 180)
+            let gold = Color(red: 1, green: 0.88, blue: 0.3)
 
-                ctx.stroke(ellipseRect(cx: cx, cy: cy, w: 90*s, h: 90*s),
-                           with: .color(.white.opacity(0.35)), lineWidth: 1.8*s)
-                ctx.stroke(ellipseRect(cx: cx, cy: cy, w: 70*s, h: 70*s),
-                           with: .color(.white.opacity(0.25)), lineWidth: 1.2*s)
+            ctx.fill(waveEllipse(cx: cx, cy: cy, w: 90*s, h: 90*s), with: .color(.white.opacity(0.06)))
+            ctx.fill(waveEllipse(cx: cx, cy: cy, w: 60*s, h: 60*s), with: .color(.white.opacity(0.08)))
 
-                let dirDots: [(CGFloat, CGFloat, Double)] = [(0, -38, 1.0), (0, 38, 0.5), (-38, 0, 0.7), (38, 0, 0.7)]
-                for (dx, dy, op) in dirDots {
-                    ctx.fill(ellipseRect(cx: cx+dx*s, cy: cy+dy*s, w: 6*s, h: 6*s),
-                             with: .color(.white.opacity(op)))
+            drawRingWave(&ctx, cx: cx, cy: cy, baseR: 46*s,
+                         amplitude: (4 + p*3)*s, waveCount: 8, phaseOffset: spinRad,
+                         color: gold, opacity: 0.90, lineWidth: 3*s)
+            drawRingWave(&ctx, cx: cx, cy: cy, baseR: 32*s,
+                         amplitude: (3 + p*2)*s, waveCount: 8, phaseOffset: -spinRad + .pi/8,
+                         color: .white, opacity: 0.72, lineWidth: 2.2*s)
+            drawRingWave(&ctx, cx: cx, cy: cy, baseR: 18*s,
+                         amplitude: (2 + p)*s, waveCount: 8, phaseOffset: spinRad*0.5 + .pi/4,
+                         color: .white, opacity: 0.55, lineWidth: 1.6*s)
+
+            let cr = (5 + p*3)*s
+            ctx.fill(waveEllipse(cx: cx, cy: cy, w: cr*2, h: cr*2), with: .color(gold.opacity(0.95)))
+            ctx.fill(waveEllipse(cx: cx, cy: cy, w: cr*1.4, h: cr*1.4), with: .color(.white.opacity(0.9)))
+        }
+    }
+}
+
+// MARK: - 2. 推しが本気: 1本の極端スパイク + 白熱光
+
+private struct ObsessedFanWave: View {
+    let size: CGFloat
+    let phase: Double
+    var body: some View {
+        Canvas { ctx, sz in
+            let s = sz.width / 140
+            let cx = sz.width / 2, cy = sz.height / 2
+            let beat = CGFloat(abs(sin(phase * .pi * 2)))
+
+            for (r, op): (CGFloat, Double) in [(55, 0.06), (40, 0.10), (26, 0.14)] {
+                let sc = 1 + beat * 0.12
+                ctx.fill(waveEllipse(cx: cx, cy: cy, w: r*s*2*sc, h: r*s*2*sc),
+                         with: .color(.white.opacity(op + beat * 0.07)))
+            }
+
+            drawHorizWave(&ctx, x1: cx-52*s, x2: cx+52*s, cy: cy,
+                          amplitude: 3*s, frequency: 3, phaseOffset: CGFloat(phase * .pi * 2),
+                          color: .white, opacity: 0.35, lineWidth: 1.5*s)
+
+            let spikeH = (44 + beat*22)*s, spikeW = (4 + beat*2)*s
+            var spike = Path()
+            spike.move(to: CGPoint(x: cx - spikeW, y: cy))
+            spike.addCurve(to: CGPoint(x: cx, y: cy - spikeH),
+                           control1: CGPoint(x: cx - spikeW*0.8, y: cy - spikeH*0.5),
+                           control2: CGPoint(x: cx - spikeW*0.3, y: cy - spikeH*0.85))
+            spike.addCurve(to: CGPoint(x: cx + spikeW, y: cy),
+                           control1: CGPoint(x: cx + spikeW*0.3, y: cy - spikeH*0.85),
+                           control2: CGPoint(x: cx + spikeW*0.8, y: cy - spikeH*0.5))
+            ctx.fill(spike, with: .color(.white.opacity(0.88 + beat*0.12)))
+
+            let tipY = cy - spikeH, gs = 1 + beat*0.4
+            for (r, op): (CGFloat, Double) in [(18, 0.10), (12, 0.22), (7, 0.55), (4, 0.92)] {
+                ctx.fill(waveEllipse(cx: cx, cy: tipY, w: r*gs*s, h: r*gs*s),
+                         with: .color(.white.opacity(op + beat*0.08)))
+            }
+        }
+    }
+}
+
+// MARK: - 3. 一点集中型: 中心へ収束する波形
+
+private struct SingleFocusWave: View {
+    let size: CGFloat
+    let phase: Double
+    var body: some View {
+        Canvas { ctx, sz in
+            let s = sz.width / 140
+            let cx = sz.width / 2, cy = sz.height / 2
+            let p = CGFloat(phase)
+
+            for (r, op): (CGFloat, Double) in [(26, 0.10), (16, 0.22), (9, 0.50)] {
+                ctx.fill(waveEllipse(cx: cx, cy: cy, w: r*(1+p*0.2)*s, h: r*(1+p*0.2)*s),
+                         with: .color(.white.opacity(op + phase*0.08)))
+            }
+            ctx.fill(waveEllipse(cx: cx, cy: cy, w: (5+p*2)*s, h: (5+p*2)*s),
+                     with: .color(.white.opacity(0.97)))
+
+            let angles: [CGFloat]  = [0, .pi/3, -.pi/3]
+            let pOffs:  [CGFloat]  = [0, 1.0, 2.1]
+            for (i, angle) in angles.enumerated() {
+                drawConvergingWave(&ctx, cx: cx, cy: cy, length: 110*s, angle: angle,
+                                   amplitude: (11+p*3)*s, frequency: 2.5,
+                                   phaseOffset: pOffs[i] + p*2*CGFloat.pi,
+                                   color: .white,
+                                   opacity: 0.78 - Double(i)*0.14,
+                                   lineWidth: (2.5 - CGFloat(i)*0.3)*s)
+            }
+        }
+    }
+}
+
+// MARK: - 4. ヘビロテ職人: 完全円形ループ、紫ネオン
+
+private struct HeavyRotatorWave: View {
+    let size: CGFloat
+    let phase: Double
+    let spin: Double
+    var body: some View {
+        Canvas { ctx, sz in
+            let s = sz.width / 140
+            let cx = sz.width / 2, cy = sz.height / 2
+            let spinRad = CGFloat(spin * .pi / 180)
+            let p = CGFloat(phase)
+            let purple = Color(red: 0.75, green: 0.4, blue: 1.0)
+
+            ctx.fill(waveEllipse(cx: cx, cy: cy, w: 80*s, h: 80*s), with: .color(.white.opacity(0.06)))
+
+            for layer in 0..<3 {
+                let lPhase = spinRad + CGFloat(layer) * (2 * .pi / 3)
+                drawRingWave(&ctx, cx: cx, cy: cy,
+                             baseR: (38 + CGFloat(layer)*5)*s,
+                             amplitude: (5+p*2.5)*s, waveCount: 6, phaseOffset: lPhase,
+                             color: layer == 0 ? purple : .white,
+                             opacity: 0.88 - Double(layer)*0.2,
+                             lineWidth: (3.2 - CGFloat(layer)*0.5)*s)
+            }
+
+            ctx.fill(waveEllipse(cx: cx, cy: cy, w: (6+p*2)*s, h: (6+p*2)*s),
+                     with: .color(purple.opacity(0.95)))
+        }
+    }
+}
+
+// MARK: - 5. 音楽探検家: 外側へ拡散するノイズ波
+
+private struct ExplorerWave: View {
+    let size: CGFloat
+    let phase: Double
+    var body: some View {
+        Canvas { ctx, sz in
+            let s = sz.width / 140
+            let cx = sz.width / 2, cy = sz.height / 2
+            let p = CGFloat(phase)
+            let green = Color(red: 0.2, green: 0.9, blue: 0.6)
+            let cyan  = Color(red: 0.3, green: 0.85, blue: 1.0)
+
+            let segs: [(a: CGFloat, br: CGFloat, len: CGFloat, freq: CGFloat, col: Color)] = [
+                (0,        18, 28, 1.0, .white),
+                (.pi/4,    16, 24, 1.5, green),
+                (.pi/2,    20, 28, 0.8, cyan),
+                (.pi*3/4,  15, 22, 1.2, .white),
+                (.pi,      22, 28, 0.9, green),
+                (-.pi/4,   18, 24, 1.1, cyan),
+                (-.pi/2,   17, 22, 1.4, .white),
+                (-.pi*3/4, 20, 26, 0.7, green),
+            ]
+            for seg in segs {
+                let expandR = seg.br*s + p*16*s
+                let sx = cx + cos(seg.a)*expandR,       sy = cy + sin(seg.a)*expandR
+                let ex = cx + cos(seg.a)*(expandR+seg.len*s), ey = cy + sin(seg.a)*(expandR+seg.len*s)
+                let pa = seg.a + .pi/2
+                let amp = (4 + p*3)*s
+                var path = Path()
+                for i in 0...20 {
+                    let t = CGFloat(i)/20
+                    let x = sx + (ex-sx)*t, y = sy + (ey-sy)*t
+                    let w = amp * sin(2 * .pi * seg.freq * t + p * 2 * .pi)
+                    let pt = CGPoint(x: x + cos(pa)*w, y: y + sin(pa)*w)
+                    if i == 0 { path.move(to: pt) } else { path.addLine(to: pt) }
                 }
+                ctx.stroke(path, with: .color(seg.col.opacity(max(0.25, 0.82 - p*0.45))),
+                           lineWidth: 1.8*s)
             }
-            .rotationEffect(.degrees(spin * 0.5))
-
-            // 針・ピン・音符（静止）
-            Canvas { ctx, sz in
-                let s = sz.width / 140
-                let cx = sz.width / 2
-                let cy = sz.height / 2
-
-                var needle = Path()
-                needle.move(to: CGPoint(x: cx, y: cy - 28*s))
-                needle.addLine(to: CGPoint(x: cx + 7*s, y: cy))
-                needle.addLine(to: CGPoint(x: cx, y: cy + 20*s))
-                needle.addLine(to: CGPoint(x: cx - 7*s, y: cy))
-                needle.closeSubpath()
-                ctx.fill(needle, with: .color(.white.opacity(0.9)))
-
-                var needleS = Path()
-                needleS.move(to: CGPoint(x: cx, y: cy + 20*s))
-                needleS.addLine(to: CGPoint(x: cx + 7*s, y: cy))
-                needleS.addLine(to: CGPoint(x: cx, y: cy - 28*s))
-                needleS.addLine(to: CGPoint(x: cx - 7*s, y: cy))
-                needleS.closeSubpath()
-                ctx.fill(needleS, with: .color(.black.opacity(0.25)))
-
-                ctx.fill(ellipseRect(cx: cx, cy: cy, w: 7*s, h: 7*s), with: .color(.white))
-
-                // 音符（浮遊）
-                let nOp = 0.55 + phase * 0.4
-                let floatY = CGFloat(sin(phase * .pi)) * 5 * s
-                drawMusicNote(&ctx, cx: cx + 28*s, cy: cy - 25*s - floatY, s: s * 1.15, opacity: nOp)
-                drawMusicNote(&ctx, cx: cx - 28*s, cy: cy + 22*s + floatY * 0.7, s: s * 0.95, opacity: nOp * 0.75)
-            }
+            ctx.fill(waveEllipse(cx: cx, cy: cy, w: (8+p*2)*s, h: (8+p*2)*s),
+                     with: .color(.white.opacity(0.75 - p*0.2)))
         }
     }
 }
 
-// MARK: - 固定リスナー（シールド + 鍵 + スパークル）
+// MARK: - 6. 固定リスナー: 揺れのない1本の安定波形
 
-private struct LoyalListenerIconLayer: View {
+private struct LoyalListenerWave: View {
     let size: CGFloat
     let phase: Double
     var body: some View {
         Canvas { ctx, sz in
             let s = sz.width / 140
-            let cx = sz.width / 2
-            let cy = sz.height / 2
+            let cx = sz.width / 2, cy = sz.height / 2
+            let blue = Color(red: 0.4, green: 0.7, blue: 1.0)
 
-            // 衝撃波リング（どどーん：外側へ拡大しながら消える）
-            let shockDefs: [(Double, Double)] = [(0.0, 1.0), (0.2, 0.8), (0.4, 0.6)]
-            for (delay, maxOp) in shockDefs {
-                let t = max(0.0, phase - delay) / (1.0 - delay)
-                guard t > 0 else { continue }
-                let r = (22 + CGFloat(t) * 44) * s
-                let op = maxOp * (1 - t) * 0.85
-                ctx.stroke(ellipseRect(cx: cx, cy: cy, w: r*2, h: r*2),
-                           with: .color(.white.opacity(op)), lineWidth: 3.5*s)
-            }
+            ctx.stroke(waveEllipse(cx: cx, cy: cy, w: 82*s, h: 82*s),
+                       with: .color(blue.opacity(0.22)), lineWidth: 1.5*s)
+            ctx.stroke(waveEllipse(cx: cx, cy: cy, w: 62*s, h: 62*s),
+                       with: .color(blue.opacity(0.16)), lineWidth: 1.2*s)
+            ctx.fill(waveEllipse(cx: cx, cy: cy, w: 72*s, h: 72*s),
+                     with: .color(.white.opacity(0.04)))
 
-            // シールド（衝撃に合わせてわずかに拡大）
-            let p = CGFloat(sin(phase * .pi)) * 4 * s
-            var shield = Path()
-            shield.move(to: CGPoint(x: cx, y: cy + 46*s + p))
-            shield.addCurve(to: CGPoint(x: cx - 34*s - p, y: cy - 10*s),
-                            control1: CGPoint(x: cx - 34*s - p, y: cy + 34*s),
-                            control2: CGPoint(x: cx - 34*s - p, y: cy + 4*s))
-            shield.addLine(to: CGPoint(x: cx - 34*s - p, y: cy - 34*s))
-            shield.addLine(to: CGPoint(x: cx, y: cy - 42*s - p))
-            shield.addLine(to: CGPoint(x: cx + 34*s + p, y: cy - 34*s))
-            shield.addLine(to: CGPoint(x: cx + 34*s + p, y: cy - 10*s))
-            shield.addCurve(to: CGPoint(x: cx, y: cy + 46*s + p),
-                            control1: CGPoint(x: cx + 34*s + p, y: cy + 4*s),
-                            control2: CGPoint(x: cx + 34*s + p, y: cy + 34*s))
-            ctx.fill(shield, with: .color(.white.opacity(0.25)))
-            ctx.stroke(shield, with: .color(.white.opacity(0.8)), lineWidth: 3.5*s)
-
-            // 南京錠ボディ
-            ctx.fill(roundedRect(cx: cx, cy: cy + 8*s, w: 28*s, h: 22*s, r: 5*s),
-                     with: .color(.white.opacity(0.9)))
-            // シャックル（弧）
-            ctx.withCGContext { cg in
-                cg.setStrokeColor(UIColor.white.cgColor)
-                cg.setLineWidth(5 * s)
-                cg.setLineCap(.round)
-                cg.addArc(center: CGPoint(x: cx, y: cy - 2*s),
-                          radius: 11*s, startAngle: .pi, endAngle: 0, clockwise: true)
-                cg.strokePath()
-            }
-            // キーホール
-            ctx.fill(ellipseRect(cx: cx, cy: cy + 6*s, w: 7*s, h: 7*s),
-                     with: .color(.black.opacity(0.4)))
-            ctx.fill(trianglePath(cx: cx, tipY: cy + 17*s, w: 6*s, h: 8*s),
-                     with: .color(.black.opacity(0.4)))
-
-            // スパークル x3（点滅）
-            let sOp = 0.4 + phase * 0.6
-            drawSparkle(&ctx, x: cx - 34*s, y: cy - 32*s, r: 4.5*s, opacity: sOp)
-            drawSparkle(&ctx, x: cx + 34*s, y: cy - 32*s, r: 3.5*s, opacity: sOp * 0.8)
-            drawSparkle(&ctx, x: cx + 36*s, y: cy + 20*s, r: 3*s, opacity: sOp * 0.6)
+            let amp = (3 + phase*1.5)*s
+            drawHorizWave(&ctx, x1: cx-52*s, x2: cx+52*s, cy: cy,
+                          amplitude: amp, frequency: 1.5,
+                          phaseOffset: CGFloat(phase * .pi * 0.6),
+                          color: .white, opacity: 0.90, lineWidth: 3.2*s)
+            drawHorizWave(&ctx, x1: cx-52*s, x2: cx+52*s, cy: cy+14*s,
+                          amplitude: amp*0.45, frequency: 1.5,
+                          phaseOffset: CGFloat(phase * .pi * 0.6),
+                          color: .white, opacity: 0.28, lineWidth: 1.6*s)
         }
     }
 }
 
-// MARK: - 成長型リスナー（棒グラフ + 上向き矢印）
+// MARK: - 7. 成長型リスナー: 積層して成長する波形
 
-private struct GrowingListenerIconLayer: View {
+private struct GrowingListenerWave: View {
     let size: CGFloat
     let phase: Double
     var body: some View {
         Canvas { ctx, sz in
             let s = sz.width / 140
-            let cx = sz.width / 2
-            let cy = sz.height / 2
+            let cx = sz.width / 2, cy = sz.height / 2
+            let p = CGFloat(phase)
 
-            let baseY = cy + 28*s
-            let barW = 14 * s
-            let heights: [CGFloat] = [18, 28, 38, 50]
-            let xOffsets: [CGFloat] = [-27, -9, 9, 27]
+            ctx.fill(waveEllipse(cx: cx, cy: cy, w: 80*s, h: 80*s), with: .color(.white.opacity(0.05)))
 
-            // 棒グラフ
-            for (i, h) in heights.enumerated() {
-                let bh = h * s * CGFloat(0.6 + phase * 0.4)
-                let by = baseY - bh
-                let opacity = 0.5 + Double(i) * 0.12
-                ctx.fill(roundedRect(cx: cx + xOffsets[i]*s, cy: by + bh/2, w: barW, h: bh, r: 3*s),
-                         with: .color(.white.opacity(opacity)))
+            let layers: [(yOff: CGFloat, ampBase: CGFloat, op: Double, lw: CGFloat)] = [
+                (26,  6, 0.28, 1.4),
+                (13,  9, 0.43, 1.9),
+                (0,  12, 0.60, 2.4),
+                (-13, 15, 0.75, 2.9),
+                (-26, 18, 0.90, 3.4),
+            ]
+            for (i, layer) in layers.enumerated() {
+                let amp = layer.ampBase * s * (0.7 + p*0.3)
+                let pOff = p * .pi * 2 + CGFloat(i) * 0.45
+                drawHorizWave(&ctx, x1: cx-48*s, x2: cx+48*s, cy: cy+layer.yOff*s,
+                              amplitude: amp, frequency: 1.5, phaseOffset: pOff,
+                              color: .white, opacity: layer.op + phase*0.07,
+                              lineWidth: layer.lw*s)
             }
 
-            // ベースライン
-            var base = Path()
-            base.move(to: CGPoint(x: cx - 36*s, y: baseY + 2*s))
-            base.addLine(to: CGPoint(x: cx + 36*s, y: baseY + 2*s))
-            ctx.stroke(base, with: .color(.white.opacity(0.5)), lineWidth: 2*s)
-
-            // 上向き矢印
-            let arrowX = cx + 44*s
-            let arrowTip = CGPoint(x: arrowX, y: cy - 34*s)
             var arrow = Path()
-            arrow.move(to: CGPoint(x: arrowX, y: cy + 28*s))
-            arrow.addLine(to: arrowTip)
-            ctx.stroke(arrow, with: .color(.white.opacity(0.9)), lineWidth: 4*s)
-            var arrowHead = Path()
-            arrowHead.move(to: arrowTip)
-            arrowHead.addLine(to: CGPoint(x: arrowX - 8*s, y: arrowTip.y + 14*s))
-            arrowHead.addLine(to: CGPoint(x: arrowX + 8*s, y: arrowTip.y + 14*s))
-            arrowHead.closeSubpath()
-            ctx.fill(arrowHead, with: .color(.white.opacity(0.9)))
+            arrow.move(to: CGPoint(x: cx+46*s, y: cy+32*s))
+            arrow.addLine(to: CGPoint(x: cx+46*s, y: cy-32*s))
+            ctx.stroke(arrow, with: .color(.white.opacity(0.28)), lineWidth: 1.4*s)
+            var head = Path()
+            head.move(to: CGPoint(x: cx+46*s, y: cy-32*s))
+            head.addLine(to: CGPoint(x: cx+40*s, y: cy-22*s))
+            head.addLine(to: CGPoint(x: cx+52*s, y: cy-22*s))
+            head.closeSubpath()
+            ctx.fill(head, with: .color(.white.opacity(0.35 + p*0.2)))
         }
     }
 }
 
-// MARK: - 懐古リスナー（ビニールレコード、回転）
+// MARK: - 8. 懐古リスナー: 過去波形の残像レイヤー
 
-private struct NostalgicIconLayer: View {
+private struct NostalgicWave: View {
     let size: CGFloat
+    let phase: Double
+    var body: some View {
+        Canvas { ctx, sz in
+            let s = sz.width / 140
+            let cx = sz.width / 2, cy = sz.height / 2
+            let p = CGFloat(phase)
+            let sepia = Color(red: 0.92, green: 0.80, blue: 0.62)
+
+            let echoes: [(yOff: CGFloat, phAdd: CGFloat, op: Double, lw: CGFloat, isSepia: Bool)] = [
+                (18, 2.2, 0.18, 1.4, true),
+                (10, 1.4, 0.32, 1.8, true),
+                (4,  0.7, 0.52, 2.2, false),
+                (0,  0.0, 0.82, 2.8, false),
+            ]
+            for echo in echoes {
+                let yPos = cy - echo.yOff*s - p*echo.yOff*0.3*s
+                let pOff = p * .pi * 2 - echo.phAdd
+                drawHorizWave(&ctx, x1: cx-50*s, x2: cx+50*s, cy: yPos,
+                              amplitude: (10+p*2)*s, frequency: 2, phaseOffset: pOff,
+                              color: echo.isSepia ? sepia : .white,
+                              opacity: echo.op, lineWidth: echo.lw*s)
+            }
+            ctx.fill(waveEllipse(cx: cx, cy: cy, w: 72*s, h: 18*s),
+                     with: .color(.white.opacity(0.04)))
+        }
+    }
+}
+
+// MARK: - 9. ジャンル偏愛家: 特定帯域に密集した波形
+
+private struct GenreAddictWave: View {
+    let size: CGFloat
+    let phase: Double
+    var body: some View {
+        Canvas { ctx, sz in
+            let s = sz.width / 140
+            let cx = sz.width / 2, cy = sz.height / 2
+            let p = CGFloat(phase)
+            let red = Color(red: 1.0, green: 0.3, blue: 0.25)
+
+            ctx.fill(Path(roundedRect: CGRect(x: cx-52*s, y: cy-22*s, width: 104*s, height: 44*s),
+                          cornerRadius: 8*s),
+                     with: .color(red.opacity(0.14)))
+
+            for i in 0..<9 {
+                let t = CGFloat(i) / 8
+                let yOff = (t - 0.5) * 36 * s
+                let cf = max(0.0, 1 - abs(t - 0.5) * 1.6)
+                let pOff = p * .pi * 2 + CGFloat(i) * 0.42
+                drawHorizWave(&ctx, x1: cx-50*s, x2: cx+50*s, cy: cy+yOff,
+                              amplitude: (2 + cf*3.5)*s, frequency: 4.5, phaseOffset: pOff,
+                              color: i % 3 == 0 ? red : .white,
+                              opacity: min(1, 0.4 + cf*0.55),
+                              lineWidth: (1.1 + cf*0.9)*s)
+            }
+        }
+    }
+}
+
+// MARK: - 10. バランス型: 完全均一波形、多色低彩度
+
+private struct BalancedWave: View {
+    let size: CGFloat
+    let phase: Double
+    var body: some View {
+        Canvas { ctx, sz in
+            let s = sz.width / 140
+            let cx = sz.width / 2, cy = sz.height / 2
+            let p = CGFloat(phase)
+            let lavender = Color(red: 0.78, green: 0.62, blue: 0.92)
+            let teal     = Color(red: 0.58, green: 0.84, blue: 0.80)
+
+            ctx.stroke(waveEllipse(cx: cx, cy: cy, w: 84*s, h: 84*s),
+                       with: .color(lavender.opacity(0.22)), lineWidth: 1.4*s)
+
+            let pOff = p * .pi * 2
+            drawHorizWave(&ctx, x1: cx-52*s, x2: cx+52*s, cy: cy-16*s,
+                          amplitude: (9+p*2)*s, frequency: 2, phaseOffset: pOff,
+                          color: lavender, opacity: 0.82, lineWidth: 2.4*s)
+            drawHorizWave(&ctx, x1: cx-52*s, x2: cx+52*s, cy: cy,
+                          amplitude: (10+p*2)*s, frequency: 2, phaseOffset: pOff+0.6,
+                          color: .white, opacity: 0.88, lineWidth: 3.0*s)
+            drawHorizWave(&ctx, x1: cx-52*s, x2: cx+52*s, cy: cy+16*s,
+                          amplitude: (9+p*2)*s, frequency: 2, phaseOffset: pOff+1.2,
+                          color: teal, opacity: 0.82, lineWidth: 2.4*s)
+        }
+    }
+}
+
+// MARK: - 11. コレクター(CD): ディスク積層構造、同心円環波形
+
+private struct CollectorWave: View {
+    let size: CGFloat
+    let phase: Double
     let spin: Double
     var body: some View {
         Canvas { ctx, sz in
             let s = sz.width / 140
-            let cx = sz.width / 2
-            let cy = sz.height / 2
-            let dR = 46 * s
+            let cx = sz.width / 2, cy = sz.height / 2
+            let p = CGFloat(phase)
+            let spinRad = CGFloat(spin * .pi / 180)
+            let gold   = Color(red: 1.0, green: 0.88, blue: 0.55)
+            let silver = Color(red: 0.85, green: 0.88, blue: 0.95)
 
-            // 外周ディスク
-            ctx.fill(ellipseRect(cx: cx, cy: cy, w: dR*2, h: dR*2),
-                     with: .color(.black.opacity(0.45)))
-            // グルーヴリング x4
-            for r: CGFloat in [42, 36, 30, 24] {
-                ctx.stroke(ellipseRect(cx: cx, cy: cy, w: r*s*2, h: r*s*2),
-                           with: .color(.white.opacity(0.22)), lineWidth: 1.5*s)
+            let rings: [(r: CGFloat, amp: CGFloat, cnt: Int, col: Color, op: Double, lw: CGFloat)] = [
+                (47, 1.4, 16, silver, 0.42, 1.5),
+                (38, 2.0, 14, gold,   0.55, 1.8),
+                (30, 2.5, 12, silver, 0.66, 2.1),
+                (22, 2.2, 10, gold,   0.78, 2.4),
+                (14, 1.8,  8, silver, 0.88, 2.8),
+            ]
+            for ring in rings {
+                drawRingWave(&ctx, cx: cx, cy: cy, baseR: ring.r*s,
+                             amplitude: ring.amp*s*(1+p*0.5), waveCount: ring.cnt,
+                             phaseOffset: spinRad*0.3,
+                             color: ring.col, opacity: ring.op + p*0.08,
+                             lineWidth: ring.lw*s)
             }
-            // センターラベル
-            let lR = 18 * s
-            ctx.fill(ellipseRect(cx: cx, cy: cy, w: lR*2, h: lR*2),
-                     with: .color(.white.opacity(0.65)))
-            // センターホール
-            ctx.fill(ellipseRect(cx: cx, cy: cy, w: 6*s, h: 6*s),
-                     with: .color(.black.opacity(0.6)))
-            // 反射ハイライト
-            var shine = Path()
-            shine.move(to: CGPoint(x: cx - 10*s, y: cy - 40*s))
-            shine.addCurve(to: CGPoint(x: cx + 15*s, y: cy - 30*s),
-                           control1: CGPoint(x: cx - 2*s, y: cy - 44*s),
-                           control2: CGPoint(x: cx + 10*s, y: cy - 40*s))
-            shine.addLine(to: CGPoint(x: cx + 8*s, y: cy - 26*s))
-            shine.addCurve(to: CGPoint(x: cx - 10*s, y: cy - 40*s),
-                           control1: CGPoint(x: cx - 2*s, y: cy - 32*s),
-                           control2: CGPoint(x: cx - 12*s, y: cy - 36*s))
-            ctx.fill(shine, with: .color(.white.opacity(0.18)))
+            ctx.fill(waveEllipse(cx: cx, cy: cy, w: (8+p*2)*s, h: (8+p*2)*s),
+                     with: .color(.white.opacity(0.94)))
+            ctx.fill(waveEllipse(cx: cx, cy: cy, w: 3*s, h: 3*s),
+                     with: .color(gold.opacity(0.9)))
         }
-        .rotationEffect(.degrees(spin * 0.3))
     }
 }
 
-// MARK: - ジャンル偏愛家（五線譜 + ト音記号 + 音符）
+// MARK: - 12. サブスク派: 左から右へ流動するストリーム波形
 
-private struct GenreAddictIconLayer: View {
+private struct StreamingFanWave: View {
     let size: CGFloat
     let phase: Double
     var body: some View {
         Canvas { ctx, sz in
             let s = sz.width / 140
-            let cx = sz.width / 2
-            let cy = sz.height / 2
+            let cx = sz.width / 2, cy = sz.height / 2
+            let p = CGFloat(phase)
+            let aqua = Color(red: 0.4, green: 0.88, blue: 1.0)
 
-            // 五線譜（5本）
-            let staffTop = cy - 22 * s
-            let staffSpacing = 9 * s
-            let staffLeft = cx - 44 * s
-            let staffRight = cx + 44 * s
-            for i in 0..<5 {
-                let y = staffTop + CGFloat(i) * staffSpacing
-                var line = Path()
-                line.move(to: CGPoint(x: staffLeft, y: y))
-                line.addLine(to: CGPoint(x: staffRight, y: y))
-                ctx.stroke(line, with: .color(.white.opacity(0.65)), lineWidth: 1.8*s)
+            ctx.fill(waveEllipse(cx: cx, cy: cy, w: 80*s, h: 80*s),
+                     with: .color(.white.opacity(0.05)))
+
+            let streams: [(yOff: CGFloat, amp: CGFloat, op: Double, lw: CGFloat, col: Color)] = [
+                (-18, 7,  0.45, 1.8, aqua),
+                (-6,  11, 0.70, 2.5, .white),
+                (6,   11, 0.70, 2.5, .white),
+                (18,  7,  0.45, 1.8, aqua),
+            ]
+            for stream in streams {
+                drawHorizWave(&ctx, x1: cx-52*s, x2: cx+52*s, cy: cy+stream.yOff*s,
+                              amplitude: stream.amp*s, frequency: 1.5,
+                              phaseOffset: p * 2 * .pi * -1,
+                              color: stream.col, opacity: stream.op,
+                              lineWidth: stream.lw*s)
             }
 
-            // ト音記号（簡略版）
-            ctx.withCGContext { cg in
-                cg.setStrokeColor(UIColor.white.cgColor)
-                cg.setLineWidth(3.5 * s)
-                cg.setLineCap(.round)
-                cg.setLineJoin(.round)
-                let gx = cx - 10 * s
-                let gy = staffTop - 8 * s
-
-                // 縦軸
-                cg.move(to: CGPoint(x: gx, y: gy))
-                cg.addLine(to: CGPoint(x: gx, y: gy + 64*s))
-
-                // スパイラル上部
-                cg.move(to: CGPoint(x: gx, y: gy + 10*s))
-                cg.addArc(center: CGPoint(x: gx + 8*s, y: gy + 16*s),
-                          radius: 9*s, startAngle: -.pi * 0.6, endAngle: .pi * 1.4, clockwise: false)
-
-                // 下部ループ
-                cg.move(to: CGPoint(x: gx, y: gy + 56*s))
-                cg.addArc(center: CGPoint(x: gx + 8*s, y: gy + 52*s),
-                          radius: 9*s, startAngle: .pi * 0.7, endAngle: -.pi * 0.3, clockwise: true)
-                cg.strokePath()
-            }
-
-            // 音符 (右側・浮遊)
-            let nOp = 0.65 + phase * 0.35
-            let float1 = CGFloat(sin(phase * .pi)) * 10 * s
-            let float2 = CGFloat(sin(phase * .pi + 0.7)) * 8 * s
-            drawMusicNote(&ctx, cx: cx + 28*s, cy: staffTop + 4*s - float1, s: s * 0.9, opacity: nOp)
-            drawMusicNote(&ctx, cx: cx + 36*s, cy: staffTop + 22*s - float2, s: s * 0.75, opacity: nOp * 0.8)
-        }
-    }
-}
-
-// MARK: - バランス型（天秤）
-
-private struct BalancedIconLayer: View {
-    let size: CGFloat
-    let phase: Double
-    var body: some View {
-        Canvas { ctx, sz in
-            let s = sz.width / 140
-            let cx = sz.width / 2
-            let cy = sz.height / 2
-
-            // 中央柱
-            var pillar = Path()
-            pillar.move(to: CGPoint(x: cx, y: cy - 36*s))
-            pillar.addLine(to: CGPoint(x: cx, y: cy + 40*s))
-            ctx.stroke(pillar, with: .color(.white.opacity(0.8)), lineWidth: 4*s)
-
-            // 三角底座
-            var base = Path()
-            base.move(to: CGPoint(x: cx - 22*s, y: cy + 40*s))
-            base.addLine(to: CGPoint(x: cx + 22*s, y: cy + 40*s))
-            base.addLine(to: CGPoint(x: cx, y: cy + 26*s))
-            base.closeSubpath()
-            ctx.fill(base, with: .color(.white.opacity(0.7)))
-
-            // 水平ビーム（少し傾ける）
-            let tilt = CGFloat(phase - 0.5) * 20 * s
-            var beam = Path()
-            beam.move(to: CGPoint(x: cx - 42*s, y: cy - 34*s + tilt))
-            beam.addLine(to: CGPoint(x: cx + 42*s, y: cy - 34*s - tilt))
-            ctx.stroke(beam, with: .color(.white.opacity(0.85)), lineWidth: 3.5*s)
-
-            // 左右の吊り紐
-            let leftPanX = cx - 42 * s, rightPanX = cx + 42 * s
-            let leftTop = cy - 34 * s + tilt, rightTop = cy - 34 * s - tilt
-            let panY = cy + 4 * s
-            var ropes = Path()
-            ropes.move(to: CGPoint(x: leftPanX, y: leftTop))
-            ropes.addLine(to: CGPoint(x: leftPanX, y: panY))
-            ropes.move(to: CGPoint(x: rightPanX, y: rightTop))
-            ropes.addLine(to: CGPoint(x: rightPanX, y: panY))
-            ctx.stroke(ropes, with: .color(.white.opacity(0.6)), lineWidth: 2*s)
-
-            // 左右の皿（半円）
-            ctx.withCGContext { cg in
-                cg.setFillColor(UIColor.white.withAlphaComponent(0.3).cgColor)
-                cg.setStrokeColor(UIColor.white.withAlphaComponent(0.75).cgColor)
-                cg.setLineWidth(2.5 * s)
-                for px in [leftPanX, rightPanX] {
-                    cg.addArc(center: CGPoint(x: px, y: panY), radius: 18*s,
-                              startAngle: 0, endAngle: .pi, clockwise: false)
-                    cg.fillPath()
-                    cg.addArc(center: CGPoint(x: px, y: panY), radius: 18*s,
-                              startAngle: 0, endAngle: .pi, clockwise: false)
-                    cg.strokePath()
-                }
-            }
-
-            // 音符（左右の皿に）
-            drawMusicNote(&ctx, cx: leftPanX - 4*s, cy: panY - 8*s, s: s * 0.8, opacity: 0.85)
-            drawMusicNote(&ctx, cx: rightPanX - 4*s, cy: panY - 8*s, s: s * 0.8, opacity: 0.85)
-        }
-    }
-}
-
-// MARK: - コレクター（CDディスク、回転）
-
-private struct CollectorIconLayer: View {
-    let size: CGFloat
-    let spin: Double
-    var body: some View {
-        Canvas { ctx, sz in
-            let s = sz.width / 140
-            let cx = sz.width / 2
-            let cy = sz.height / 2
-            let dR = 48 * s
-
-            // CDディスク外周（白）
-            ctx.fill(ellipseRect(cx: cx, cy: cy, w: dR*2, h: dR*2),
-                     with: .color(.white.opacity(0.85)))
-            // グルーヴリング
-            for r: CGFloat in [46, 40, 34, 28] {
-                ctx.stroke(ellipseRect(cx: cx, cy: cy, w: r*s*2, h: r*s*2),
-                           with: .color(Color(red: 0.7, green: 0.8, blue: 1).opacity(0.35)), lineWidth: 1.5*s)
-            }
-            // センターハブ（シルバー）
-            let hR = 16 * s
-            ctx.fill(ellipseRect(cx: cx, cy: cy, w: hR*2, h: hR*2),
-                     with: .color(Color(red: 0.8, green: 0.85, blue: 0.95).opacity(0.9)))
-            // センターホール
-            ctx.fill(ellipseRect(cx: cx, cy: cy, w: 6.5*s, h: 6.5*s),
-                     with: .color(.white.opacity(0.95)))
-            // 反射ハイライト
-            var shine = Path()
-            shine.move(to: CGPoint(x: cx - 8*s, y: cy - 42*s))
-            shine.addCurve(to: CGPoint(x: cx + 20*s, y: cy - 34*s),
-                           control1: CGPoint(x: cx + 2*s, y: cy - 46*s),
-                           control2: CGPoint(x: cx + 14*s, y: cy - 42*s))
-            shine.addLine(to: CGPoint(x: cx + 12*s, y: cy - 28*s))
-            shine.addCurve(to: CGPoint(x: cx - 8*s, y: cy - 42*s),
-                           control1: CGPoint(x: cx - 2*s, y: cy - 32*s),
-                           control2: CGPoint(x: cx - 10*s, y: cy - 38*s))
-            ctx.fill(shine, with: .color(.white.opacity(0.25)))
-        }
-        .rotationEffect(.degrees(spin * 0.4))
-    }
-}
-
-// MARK: - サブスク派（地球儀 + WiFi + 音符）
-
-private struct StreamingFanIconLayer: View {
-    let size: CGFloat
-    let phase: Double
-    var body: some View {
-        Canvas { ctx, sz in
-            let s = sz.width / 140
-            let cx = sz.width / 2
-            let cy = sz.height / 2
-
-            // 背景グロー
-            ctx.fill(ellipseRect(cx: cx, cy: cy - 2*s, w: 72*s, h: 72*s),
-                     with: .color(.white.opacity(0.08 + phase * 0.04)))
-
-            // ── Apple ロゴ（上から落下） ──
-            let t = CGFloat(phase)
-            let appleDropY = -(1 - t) * (1 - t) * 62 * s  // 二乗落下: phase=0で-62s上、phase=1で0
-            var appleCtx = ctx
-            appleCtx.translateBy(x: 0, y: appleDropY)
-
-            let bw: CGFloat = 22 * s
-            let bh: CGFloat = 27 * s
-
-            var apple = Path()
-            // ステム付け根（上中央やや左）からスタート
-            apple.move(to: CGPoint(x: cx - bw * 0.1, y: cy - bh * 0.78))
-            // 左アーチ（上 → 左最大 → 左下）
-            apple.addCurve(
-                to: CGPoint(x: cx - bw, y: cy - bh * 0.05),
-                control1: CGPoint(x: cx - bw * 0.38, y: cy - bh * 0.98),
-                control2: CGPoint(x: cx - bw * 1.15, y: cy - bh * 0.58)
-            )
-            // 左下カーブ → 底
-            apple.addCurve(
-                to: CGPoint(x: cx, y: cy + bh),
-                control1: CGPoint(x: cx - bw * 1.15, y: cy + bh * 0.42),
-                control2: CGPoint(x: cx - bw * 0.32, y: cy + bh * 1.0)
-            )
-            // 底 → 右下カーブ
-            apple.addCurve(
-                to: CGPoint(x: cx + bw, y: cy - bh * 0.05),
-                control1: CGPoint(x: cx + bw * 0.32, y: cy + bh * 1.0),
-                control2: CGPoint(x: cx + bw * 1.15, y: cy + bh * 0.42)
-            )
-            // 右アーチ → バイト開始点
-            apple.addCurve(
-                to: CGPoint(x: cx + bw * 0.28, y: cy - bh * 0.74),
-                control1: CGPoint(x: cx + bw * 1.15, y: cy - bh * 0.58),
-                control2: CGPoint(x: cx + bw * 0.58, y: cy - bh * 0.92)
-            )
-            // バイト（くぼみ）→ スタートに戻る
-            apple.addCurve(
-                to: CGPoint(x: cx - bw * 0.1, y: cy - bh * 0.78),
-                control1: CGPoint(x: cx + bw * 0.12, y: cy - bh * 0.56),
-                control2: CGPoint(x: cx + bw * 0.02, y: cy - bh * 0.78)
-            )
-            apple.closeSubpath()
-            appleCtx.fill(apple, with: .color(.white.opacity(0.93)))
-
-            // ステム（右上方向に流れるカーブ）
-            var stem = Path()
-            stem.move(to: CGPoint(x: cx - bw * 0.05, y: cy - bh * 0.78))
-            stem.addCurve(
-                to: CGPoint(x: cx + bw * 0.52, y: cy - bh * 1.3),
-                control1: CGPoint(x: cx + bw * 0.1,  y: cy - bh * 0.86),
-                control2: CGPoint(x: cx + bw * 0.32, y: cy - bh * 1.1)
-            )
-            appleCtx.stroke(stem, with: .color(.white.opacity(0.88)), lineWidth: 2.8 * s)
-            // ── Apple ロゴ ここまで ──
-
-            // 右下：音符（装飾）
-            let nOp = 0.4 + phase * 0.38
-            drawMusicNote(&ctx, cx: cx + 34*s, cy: cy + 28*s, s: s * 0.85, opacity: nOp)
-
-            // 左上：WiFiアーク（装飾）
-            let wfOp = 0.38 + phase * 0.38
-            ctx.withCGContext { cg in
-                cg.setLineCap(.round)
-                let wfX = cx - 32 * s, wfY = cy - 28 * s
-                for (r, lw): (CGFloat, CGFloat) in [(9, 2.8), (15, 2.2), (21, 1.8)] {
-                    cg.setStrokeColor(UIColor.white.withAlphaComponent(wfOp).cgColor)
-                    cg.setLineWidth(lw * s)
-                    cg.addArc(center: CGPoint(x: wfX, y: wfY + r * 0.5),
-                              radius: r * s, startAngle: -.pi * 0.75, endAngle: -.pi * 0.25,
-                              clockwise: false)
-                    cg.strokePath()
-                }
-                cg.setFillColor(UIColor.white.withAlphaComponent(wfOp).cgColor)
-                cg.addEllipse(in: CGRect(x: wfX - 2.5*s, y: wfY + 9*s*0.5 - 2.5*s, width: 5*s, height: 5*s))
-                cg.fillPath()
+            let dotX = cx - 52*s + p * 104*s
+            for dy: CGFloat in [-20, -8, 8, 20] {
+                ctx.fill(waveEllipse(cx: dotX, cy: cy+dy*s, w: 4*s, h: 4*s),
+                         with: .color(.white.opacity(max(0, 0.6 - abs(Double(dy))/40.0*0.5))))
             }
         }
     }
 }
 
-// MARK: - ヘルパー: 楕円Rect
+// MARK: - Drawing Helpers
 
-private func ellipseRect(cx: CGFloat, cy: CGFloat, w: CGFloat, h: CGFloat) -> Path {
+private func drawHorizWave(
+    _ ctx: inout GraphicsContext,
+    x1: CGFloat, x2: CGFloat, cy: CGFloat,
+    amplitude: CGFloat, frequency: CGFloat, phaseOffset: CGFloat,
+    color: Color, opacity: Double, lineWidth: CGFloat,
+    steps: Int = 80
+) {
+    var path = Path()
+    for i in 0...steps {
+        let t = CGFloat(i) / CGFloat(steps)
+        let x = x1 + (x2 - x1) * t
+        let y = cy + amplitude * sin(2 * .pi * frequency * t + phaseOffset)
+        if i == 0 { path.move(to: CGPoint(x: x, y: y)) } else { path.addLine(to: CGPoint(x: x, y: y)) }
+    }
+    ctx.stroke(path, with: .color(color.opacity(opacity)), lineWidth: lineWidth)
+}
+
+private func drawRingWave(
+    _ ctx: inout GraphicsContext,
+    cx: CGFloat, cy: CGFloat,
+    baseR: CGFloat, amplitude: CGFloat, waveCount: Int, phaseOffset: CGFloat,
+    color: Color, opacity: Double, lineWidth: CGFloat,
+    steps: Int = 120
+) {
+    var path = Path()
+    for i in 0...steps {
+        let angle = CGFloat(i) / CGFloat(steps) * 2 * .pi
+        let r = baseR + amplitude * sin(CGFloat(waveCount) * angle + phaseOffset)
+        let pt = CGPoint(x: cx + cos(angle) * r, y: cy + sin(angle) * r)
+        if i == 0 { path.move(to: pt) } else { path.addLine(to: pt) }
+    }
+    path.closeSubpath()
+    ctx.stroke(path, with: .color(color.opacity(opacity)), lineWidth: lineWidth)
+}
+
+private func drawConvergingWave(
+    _ ctx: inout GraphicsContext,
+    cx: CGFloat, cy: CGFloat,
+    length: CGFloat, angle: CGFloat,
+    amplitude: CGFloat, frequency: CGFloat, phaseOffset: CGFloat,
+    color: Color, opacity: Double, lineWidth: CGFloat,
+    steps: Int = 80
+) {
+    var path = Path()
+    let px = -sin(angle), py = cos(angle)
+    for i in 0...steps {
+        let t = CGFloat(i) / CGFloat(steps)
+        let dist = (t - 0.5) * length
+        let baseX = cx + cos(angle) * dist, baseY = cy + sin(angle) * dist
+        let ampScale = abs(t - 0.5) * 2
+        let wave = amplitude * ampScale * sin(2 * .pi * frequency * t + phaseOffset)
+        let pt = CGPoint(x: baseX + px * wave, y: baseY + py * wave)
+        if i == 0 { path.move(to: pt) } else { path.addLine(to: pt) }
+    }
+    ctx.stroke(path, with: .color(color.opacity(opacity)), lineWidth: lineWidth)
+}
+
+private func waveEllipse(cx: CGFloat, cy: CGFloat, w: CGFloat, h: CGFloat) -> Path {
     Path(ellipseIn: CGRect(x: cx - w/2, y: cy - h/2, width: w, height: h))
 }
 
-// MARK: - ヘルパー: 角丸矩形
-
-private func roundedRect(cx: CGFloat, cy: CGFloat, w: CGFloat, h: CGFloat, r: CGFloat) -> Path {
-    Path(roundedRect: CGRect(x: cx - w/2, y: cy - h/2, width: w, height: h),
-         cornerRadius: r)
-}
-
-// MARK: - ヘルパー: 三角形
-
-private func trianglePath(cx: CGFloat, tipY: CGFloat, w: CGFloat, h: CGFloat) -> Path {
-    var p = Path()
-    p.move(to: CGPoint(x: cx, y: tipY))
-    p.addLine(to: CGPoint(x: cx - w/2, y: tipY - h))
-    p.addLine(to: CGPoint(x: cx + w/2, y: tipY - h))
-    p.closeSubpath()
-    return p
-}
-
-// MARK: - ヘルパー: ハートパス
-
-private func heartPath(cx: CGFloat, cy: CGFloat, r: CGFloat) -> Path {
-    var p = Path()
-    let tip = CGPoint(x: cx, y: cy + r * 0.85)
-    p.move(to: tip)
-    // 底尖 → 左バンプ
-    p.addCurve(
-        to: CGPoint(x: cx - r * 0.9, y: cy - r * 0.35),
-        control1: CGPoint(x: cx - r * 0.3, y: cy + r * 0.65),
-        control2: CGPoint(x: cx - r * 1.1, y: cy + r * 0.15)
-    )
-    // 左バンプ → 中央くぼみ
-    p.addCurve(
-        to: CGPoint(x: cx, y: cy - r * 0.15),
-        control1: CGPoint(x: cx - r * 0.9, y: cy - r * 0.8),
-        control2: CGPoint(x: cx - r * 0.35, y: cy - r * 0.82)
-    )
-    // 中央くぼみ → 右バンプ
-    p.addCurve(
-        to: CGPoint(x: cx + r * 0.9, y: cy - r * 0.35),
-        control1: CGPoint(x: cx + r * 0.35, y: cy - r * 0.82),
-        control2: CGPoint(x: cx + r * 0.9, y: cy - r * 0.8)
-    )
-    // 右バンプ → 底尖
-    p.addCurve(
-        to: tip,
-        control1: CGPoint(x: cx + r * 1.1, y: cy + r * 0.15),
-        control2: CGPoint(x: cx + r * 0.3, y: cy + r * 0.65)
-    )
-    p.closeSubpath()
-    return p
-}
-
-// MARK: - ヘルパー: スパークル（4方向ダイヤモンド）
-
-private func drawSparkle(_ ctx: inout GraphicsContext,
-                          x: CGFloat, y: CGFloat, r: CGFloat, opacity: Double) {
-    let w = r * 0.28
-    var p = Path()
-    // 上
-    p.move(to: CGPoint(x: x, y: y - r))
-    p.addLine(to: CGPoint(x: x + w, y: y - r * 0.28))
-    p.addLine(to: CGPoint(x: x, y: y))
-    p.addLine(to: CGPoint(x: x - w, y: y - r * 0.28))
-    p.closeSubpath()
-    // 下
-    p.move(to: CGPoint(x: x, y: y + r))
-    p.addLine(to: CGPoint(x: x + w, y: y + r * 0.28))
-    p.addLine(to: CGPoint(x: x, y: y))
-    p.addLine(to: CGPoint(x: x - w, y: y + r * 0.28))
-    p.closeSubpath()
-    // 右
-    p.move(to: CGPoint(x: x + r, y: y))
-    p.addLine(to: CGPoint(x: x + r * 0.28, y: y + w))
-    p.addLine(to: CGPoint(x: x, y: y))
-    p.addLine(to: CGPoint(x: x + r * 0.28, y: y - w))
-    p.closeSubpath()
-    // 左
-    p.move(to: CGPoint(x: x - r, y: y))
-    p.addLine(to: CGPoint(x: x - r * 0.28, y: y + w))
-    p.addLine(to: CGPoint(x: x, y: y))
-    p.addLine(to: CGPoint(x: x - r * 0.28, y: y - w))
-    p.closeSubpath()
-    ctx.fill(p, with: .color(.white.opacity(opacity)))
-}
-
-// MARK: - ヘルパー: 音符（♩）
-
-private func drawMusicNote(_ ctx: inout GraphicsContext,
-                            cx: CGFloat, cy: CGFloat, s: CGFloat, opacity: Double) {
-    let color = GraphicsContext.Shading.color(.white.opacity(opacity))
-    let noteR = 5.5 * s
-    // 音符頭（楕円）
-    ctx.fill(ellipseRect(cx: cx, cy: cy + 2*s, w: noteR*2, h: noteR*1.6), with: color)
-    // ステム
-    let stemX = cx + noteR * 0.85
-    var stem = Path()
-    stem.move(to: CGPoint(x: stemX, y: cy + 2*s - noteR * 0.5))
-    stem.addLine(to: CGPoint(x: stemX, y: cy - 14*s))
-    ctx.stroke(stem, with: color, lineWidth: 2.2*s)
-    // フラッグ（右方向へ流れる曲線）
-    var flag = Path()
-    flag.move(to: CGPoint(x: stemX, y: cy - 14*s))
-    flag.addCurve(to: CGPoint(x: stemX + 8*s, y: cy - 5*s),
-                  control1: CGPoint(x: stemX + 11*s, y: cy - 13*s),
-                  control2: CGPoint(x: stemX + 11*s, y: cy - 8*s))
-    ctx.stroke(flag, with: color, lineWidth: 2*s)
-}
-
-// MARK: - ヘルパー: 5角星
-
-private func drawStar5(_ ctx: inout GraphicsContext,
-                        cx: CGFloat, cy: CGFloat, outerR: CGFloat, innerR: CGFloat,
-                        opacity: Double) {
-    var p = Path()
-    for i in 0..<10 {
-        let angle = CGFloat(i) * .pi / 5 - .pi / 2
-        let r = i % 2 == 0 ? outerR : innerR
-        let pt = CGPoint(x: cx + cos(angle) * r, y: cy + sin(angle) * r)
-        if i == 0 { p.move(to: pt) } else { p.addLine(to: pt) }
-    }
-    p.closeSubpath()
-    ctx.fill(p, with: .color(.white.opacity(opacity)))
-}
-
-// MARK: - PersonalityBadgeView（後方互換：ListenerPersonality → PersonalityIconSymbol）
+// MARK: - PersonalityBadgeView
 
 struct PersonalityBadgeView: View {
     let personality: ListenerPersonality
@@ -922,7 +553,6 @@ struct PersonalityBadgeView: View {
         if let p = Personality.allCases.first(where: { $0.rawValue == personality.title }) {
             PersonalityIconSymbol(personality: p, size: size)
         } else {
-            // ニューカマー等、対応するenumがない場合のフォールバック
             ZStack {
                 Circle()
                     .fill(LinearGradient(
