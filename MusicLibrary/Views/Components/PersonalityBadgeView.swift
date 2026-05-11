@@ -1,5 +1,5 @@
 // PersonalityBadgeView.swift
-// MusicLibrary — Waveform Universe  Dark BG + Neon Glow
+// MusicLibrary — Waveform Universe · Organic Wave System
 
 import SwiftUI
 
@@ -14,9 +14,7 @@ struct PersonalityIconSymbol: View {
     var body: some View {
         TimelineView(.animation) { timeline in
             let elapsed = timeline.date.timeIntervalSince(startDate)
-            // phase: 0→1→0 pulse (period ≈ 3.2s), matches "sound vibration" feel
             let phase  = (sin(elapsed * .pi / 1.6) + 1) / 2
-            // spin: linear degrees, one rotation every 6s
             let spin   = elapsed / 6.0 * 360.0
 
             ZStack {
@@ -34,7 +32,6 @@ struct PersonalityIconSymbol: View {
         }
     }
 
-    // Neon accent color per personality
     private var neonColor: Color {
         switch personality {
         case .legend:          Color(red: 1.0, green: 0.82, blue: 0.20)
@@ -56,111 +53,122 @@ struct PersonalityIconSymbol: View {
     private func iconLayer(phase: Double, spin: Double) -> some View {
         switch personality {
         case .legend:          LegendWave(size: size, phase: phase, spin: spin)
-        case .obsessedFan:     ObsessedFanWave(size: size, phase: phase)
-        case .singleFocus:     SingleFocusWave(size: size, phase: phase)
+        case .obsessedFan:     ObsessedFanWave(size: size, phase: phase, spin: spin)
+        case .singleFocus:     SingleFocusWave(size: size, phase: phase, spin: spin)
         case .heavyRotator:    HeavyRotatorWave(size: size, phase: phase, spin: spin)
-        case .explorer:        ExplorerWave(size: size, phase: phase)
-        case .loyalListener:   LoyalListenerWave(size: size, phase: phase)
-        case .growingListener: GrowingListenerWave(size: size, phase: phase)
-        case .nostalgic:       NostalgicWave(size: size, phase: phase)
-        case .genreAddict:     GenreAddictWave(size: size, phase: phase)
+        case .explorer:        ExplorerWave(size: size, phase: phase, spin: spin)
+        case .loyalListener:   LoyalListenerWave(size: size, phase: phase, spin: spin)
+        case .growingListener: GrowingListenerWave(size: size, phase: phase, spin: spin)
+        case .nostalgic:       NostalgicWave(size: size, phase: phase, spin: spin)
+        case .genreAddict:     GenreAddictWave(size: size, phase: phase, spin: spin)
         case .balanced:        BalancedWave(size: size, phase: phase, spin: spin)
         case .collector:       CollectorWave(size: size, phase: phase, spin: spin)
-        case .streamingFan:    StreamingFanWave(size: size, phase: phase)
+        case .streamingFan:    StreamingFanWave(size: size, phase: phase, spin: spin)
         }
     }
 }
 
-// MARK: - 1. レジェンド  ── 金粒子が2リングを周回
+// MARK: - 1. レジェンド ── ゴールドの王冠波形リング
 
 private struct LegendWave: View {
     let size: CGFloat; let phase: Double; let spin: Double
-    private let c = Color(red: 1.0, green: 0.85, blue: 0.2)
+    private let gold  = Color(red: 1.00, green: 0.82, blue: 0.20)
+    private let white = Color(red: 1.00, green: 0.96, blue: 0.88)
     var body: some View {
         Canvas { ctx, sz in
-            let s = sz.width / 140
-            let cx = sz.width / 2, cy = sz.height / 2
-            let p  = CGFloat(phase)
-            let sr = CGFloat(spin * .pi / 180)
-
-            // outer ring: 16 particles
-            for i in 0..<16 {
-                let a = CGFloat(i) * (2 * .pi / 16) + sr
-                let brightness = 0.55 + CGFloat(sin(p * 2 * .pi + CGFloat(i) * 0.4)) * 0.4
-                glowDot(&ctx, x: cx + cos(a)*40*s, y: cy + sin(a)*40*s,
-                        r: 3.5*s, color: c.opacity(max(0.1, brightness)))
-            }
-            // inner ring: 8 particles (counter)
-            for i in 0..<8 {
-                let a = CGFloat(i) * (2 * .pi / 8) - sr * 0.7
-                let brightness = 0.5 + CGFloat(sin(p * 2 * .pi + CGFloat(i) * 0.8)) * 0.4
-                glowDot(&ctx, x: cx + cos(a)*22*s, y: cy + sin(a)*22*s,
-                        r: 2.8*s, color: c.opacity(max(0.1, brightness)))
-            }
-            // center pulse
-            glowDot(&ctx, x: cx, y: cy, r: (4 + p*2)*s, color: c.opacity(0.85 + p*0.15))
+            let half = sz.width / 2; let cx = half; let cy = half
+            let s = sz.width / 400; let t = CGFloat(spin / 60)
+            ctx.blendMode = .screen
+            // 外側の王冠リング — outward で冠状スパイク
+            organicRingGroup(&ctx, cx: cx, cy: cy, t: t,
+                             count: 22, baseR: half*0.68, maxAmp: half*0.28,
+                             speedBase: 0.28, waveDir:  1,
+                             color: gold,  lw: s*2.2, opacity: 0.42, seed: 0)
+            organicRingGroup(&ctx, cx: cx, cy: cy, t: t,
+                             count: 12, baseR: half*0.60, maxAmp: half*0.12,
+                             speedBase: 0.36, waveDir: -1,
+                             color: white, lw: s*1.6, opacity: 0.32, seed: 22)
+            // 中央の発光核
+            organicRingGroup(&ctx, cx: cx, cy: cy, t: t,
+                             count:  8, baseR: half*0.20, maxAmp: half*0.12,
+                             speedBase: 0.48, waveDir:  1,
+                             color: gold,  lw: s*1.8, opacity: 0.52, seed: 34)
+            ctx.blendMode = .normal
+            var dot = Path()
+            dot.addArc(center: CGPoint(x: cx, y: cy), radius: half*0.08,
+                       startAngle: .zero, endAngle: .radians(2 * .pi), clockwise: false)
+            ctx.fill(dot,   with: .color(gold.opacity(0.90)))
+            ctx.stroke(dot, with: .color(white.opacity(0.95)), lineWidth: s*1.5)
+            ctx.stroke(dot, with: .color(gold.opacity(0.40)),  lineWidth: s*6.0)
         }
     }
 }
 
-// MARK: - 2. 推しが本気  ── 極端な1本スパイク + 白熱コア
+// MARK: - 2. 推しが本気 ── 中心爆発スパイク波形
 
 private struct ObsessedFanWave: View {
-    let size: CGFloat; let phase: Double
-    private let c = Color(red: 1.0, green: 0.20, blue: 0.60)
+    let size: CGFloat; let phase: Double; let spin: Double
+    private let pink  = Color(red: 1.00, green: 0.12, blue: 0.52)
+    private let white = Color(red: 1.00, green: 0.92, blue: 0.95)
     var body: some View {
         Canvas { ctx, sz in
-            let s  = sz.width / 140
-            let cx = sz.width / 2, cy = sz.height / 2
-            let beat = CGFloat(abs(sin(phase * .pi * 2)))
-            let spikeH = (50 + beat * 20) * s
-
-            // Glow spike layers (wide → narrow)
-            for (wMult, op): (CGFloat, Double) in [(5, 0.06), (3, 0.14), (1.5, 0.35), (1, 0.92)] {
-                let w = (2.5 + beat) * s * wMult
-                var p = Path()
-                p.move(to: CGPoint(x: cx - w, y: cy + 6*s))
-                p.addCurve(to: CGPoint(x: cx, y: cy - spikeH),
-                           control1: CGPoint(x: cx - w, y: cy - spikeH * 0.4),
-                           control2: CGPoint(x: cx - w * 0.3, y: cy - spikeH * 0.85))
-                p.addCurve(to: CGPoint(x: cx + w, y: cy + 6*s),
-                           control1: CGPoint(x: cx + w * 0.3, y: cy - spikeH * 0.85),
-                           control2: CGPoint(x: cx + w, y: cy - spikeH * 0.4))
-                ctx.fill(p, with: .color(c.opacity(op)))
-            }
-            // Tip incandescent core
-            glowDot(&ctx, x: cx, y: cy - spikeH, r: (5 + beat*3)*s, color: .white.opacity(0.9 + beat*0.1))
+            let half = sz.width / 2; let cx = half; let cy = half
+            let s = sz.width / 400; let t = CGFloat(spin / 60)
+            ctx.blendMode = .screen
+            // 極端に高い振幅で中心から爆発的スパイク
+            organicRingGroup(&ctx, cx: cx, cy: cy, t: t,
+                             count: 10, baseR: half*0.08, maxAmp: half*0.70,
+                             speedBase: 0.60, waveDir:  1,
+                             color: pink,  lw: s*2.8, opacity: 0.42, seed: 0)
+            organicRingGroup(&ctx, cx: cx, cy: cy, t: t,
+                             count:  8, baseR: half*0.06, maxAmp: half*0.38,
+                             speedBase: 0.80, waveDir: -1,
+                             color: white, lw: s*2.0, opacity: 0.38, seed: 10)
+            ctx.blendMode = .normal
+            var dot = Path()
+            dot.addArc(center: CGPoint(x: cx, y: cy), radius: half*0.10,
+                       startAngle: .zero, endAngle: .radians(2 * .pi), clockwise: false)
+            ctx.fill(dot,   with: .color(white.opacity(0.95)))
+            ctx.stroke(dot, with: .color(pink.opacity(0.70)), lineWidth: s*5.0)
         }
     }
 }
 
-// MARK: - 3. 一点集中型  ── 4本の波線が中心へ収束
+// MARK: - 3. 一点集中型 ── 3層が中心へ収束する有機波形
 
 private struct SingleFocusWave: View {
-    let size: CGFloat; let phase: Double
-    private let c = Color(red: 0.3, green: 0.80, blue: 1.0)
+    let size: CGFloat; let phase: Double; let spin: Double
+    private let cyan  = Color(red: 0.22, green: 0.78, blue: 1.00)
+    private let white = Color(red: 0.85, green: 0.95, blue: 1.00)
     var body: some View {
         Canvas { ctx, sz in
-            let s  = sz.width / 140
-            let cx = sz.width / 2, cy = sz.height / 2
-            let p  = CGFloat(phase)
-
-            // 4 converging wave lines at 0°/45°/90°/135°
-            for (i, angle) in [CGFloat(0), .pi/4, .pi/2, .pi*3/4].enumerated() {
-                let pOff = p * 2 * .pi + CGFloat(i) * 0.9
-                let path = makeConvergingPath(cx: cx, cy: cy, length: 108*s,
-                                              angle: angle, amplitude: (10+p*4)*s,
-                                              freq: 2.5, phaseOff: pOff)
-                let op = 0.80 - Double(i) * 0.10
-                glowStroke(&ctx, path: path, color: c, width: (2.8 - CGFloat(i)*0.3)*s, glow: 0.18, opacity: op)
-            }
-            // Center convergence glow
-            glowDot(&ctx, x: cx, y: cy, r: (6 + p*2)*s, color: .white.opacity(0.95))
+            let half = sz.width / 2; let cx = half; let cy = half
+            let s = sz.width / 400; let t = CGFloat(spin / 60)
+            ctx.blendMode = .screen
+            // 全層 inward で収束感
+            organicRingGroup(&ctx, cx: cx, cy: cy, t: t,
+                             count: 15, baseR: half*0.65, maxAmp: half*0.20,
+                             speedBase: 0.38, waveDir: -1,
+                             color: cyan,  lw: s*2.0, opacity: 0.38, seed: 0)
+            organicRingGroup(&ctx, cx: cx, cy: cy, t: t,
+                             count: 12, baseR: half*0.44, maxAmp: half*0.16,
+                             speedBase: 0.48, waveDir: -1,
+                             color: white, lw: s*1.6, opacity: 0.36, seed: 15)
+            organicRingGroup(&ctx, cx: cx, cy: cy, t: t,
+                             count:  8, baseR: half*0.24, maxAmp: half*0.10,
+                             speedBase: 0.62, waveDir: -1,
+                             color: cyan,  lw: s*1.2, opacity: 0.44, seed: 27)
+            ctx.blendMode = .normal
+            var dot = Path()
+            dot.addArc(center: CGPoint(x: cx, y: cy), radius: half*0.08,
+                       startAngle: .zero, endAngle: .radians(2 * .pi), clockwise: false)
+            ctx.fill(dot,   with: .color(white.opacity(0.95)))
+            ctx.stroke(dot, with: .color(cyan.opacity(0.60)), lineWidth: s*5.0)
         }
     }
 }
 
-// MARK: - 4. ヘビロテ職人  ── 有機的波形ループ（hebirote.html完全移植）
+// MARK: - 4. ヘビロテ職人 ── 有機的波形ループ（hebirote.html完全移植）
 
 private struct HeavyRotatorWave: View {
     let size: CGFloat; let phase: Double; let spin: Double
@@ -169,357 +177,292 @@ private struct HeavyRotatorWave: View {
         Canvas { ctx, sz in
             let half  = sz.width / 2
             let cx    = half, cy = half
-            let coreR = half * 0.50        // HTML: CORE_R=100, 半径=200 → 比率0.5
-            let s     = sz.width / 400     // HTML viewBox=400 基準
-            let t     = CGFloat(spin / 60) // elapsed seconds
+            let coreR = half * 0.50
+            let s     = sz.width / 400
+            let t     = CGFloat(spin / 60)
 
             let purple   = Color(red: 0.58, green: 0.20, blue: 0.93)
             let lavender = Color(red: 0.75, green: 0.52, blue: 0.99)
             let coreEdge = Color(red: 0.85, green: 0.53, blue: 0.99)
 
-            // 波形グループを screen blend で重ねて発光効果
             ctx.blendMode = .screen
-
-            // 外側波形 20本: outward (waveDir=+1), stroke-width≈0.9
             organicRingGroup(&ctx, cx: cx, cy: cy, t: t,
-                             count: 20, baseR: coreR * 1.02, maxAmp: coreR * 0.30,
+                             count: 20, baseR: coreR*1.02, maxAmp: coreR*0.30,
                              speedBase: 0.35, waveDir:  1,
-                             color: purple,   lw: s * 2.0, opacity: 0.38, seed: 0)
-
-            // 内側エッジ波形 12本: inward (waveDir=-1), stroke-width≈0.4
+                             color: purple,   lw: s*2.0, opacity: 0.38, seed: 0)
             organicRingGroup(&ctx, cx: cx, cy: cy, t: t,
-                             count: 12, baseR: coreR * 0.99, maxAmp: coreR * 0.08,
+                             count: 12, baseR: coreR*0.99, maxAmp: coreR*0.08,
                              speedBase: 0.55, waveDir: -1,
-                             color: lavender, lw: s * 1.0, opacity: 0.38, seed: 20)
-
-            // 内側センター波形 8本: inward, stroke-width≈0.4
+                             color: lavender, lw: s*1.0, opacity: 0.38, seed: 20)
             organicRingGroup(&ctx, cx: cx, cy: cy, t: t,
-                             count: 8, baseR: coreR * 0.92, maxAmp: coreR * 0.15,
+                             count:  8, baseR: coreR*0.92, maxAmp: coreR*0.15,
                              speedBase: 0.42, waveDir: -1,
-                             color: lavender, lw: s * 1.0, opacity: 0.30, seed: 32)
+                             color: lavender, lw: s*1.0, opacity: 0.30, seed: 32)
 
-            // 中心円: 黒塗りで内側を隠す → HTML core-circle と同等
             ctx.blendMode = .normal
             var core = Path()
             core.addArc(center: CGPoint(x: cx, y: cy), radius: coreR,
                         startAngle: .zero, endAngle: .radians(2 * .pi), clockwise: false)
-            ctx.fill(core, with: .color(.black))
-            ctx.stroke(core, with: .color(coreEdge.opacity(0.82)), lineWidth: s * 1.8)
-            ctx.stroke(core, with: .color(purple.opacity(0.30)),    lineWidth: s * 7.0)
+            ctx.fill(core,   with: .color(.black))
+            ctx.stroke(core, with: .color(coreEdge.opacity(0.82)), lineWidth: s*1.8)
+            ctx.stroke(core, with: .color(purple.opacity(0.30)),    lineWidth: s*7.0)
         }
     }
 }
 
-// MARK: - 5. 音楽探検家  ── 多色パーティクルが拡散
+// MARK: - 5. 音楽探検家 ── 3帯域に拡散する有機波形
 
 private struct ExplorerWave: View {
-    let size: CGFloat; let phase: Double
+    let size: CGFloat; let phase: Double; let spin: Double
+    private let green = Color(red: 0.15, green: 0.88, blue: 0.45)
+    private let cyan  = Color(red: 0.20, green: 0.82, blue: 0.95)
     var body: some View {
         Canvas { ctx, sz in
-            let s  = sz.width / 140
-            let cx = sz.width / 2, cy = sz.height / 2
-            let p  = CGFloat(phase)
-
-            // Fixed seed particle layout — 36 particles in 3 rings expanding with phase
-            let colors: [Color] = [
-                Color(red: 0.2, green: 0.9, blue: 0.5),
-                Color(red: 0.6, green: 0.3, blue: 1.0),
-                Color(red: 0.3, green: 0.85, blue: 1.0),
-                Color(red: 1.0, green: 0.6, blue: 0.2),
-            ]
-            let configs: [(n: Int, baseR: CGFloat, rOff: CGFloat, rDot: CGFloat)] = [
-                (8,  14, 6,  2.8),
-                (12, 28, 10, 2.2),
-                (16, 42, 14, 1.8),
-            ]
-            for (ri, cfg) in configs.enumerated() {
-                for i in 0..<cfg.n {
-                    let a = CGFloat(i) * (2 * .pi / CGFloat(cfg.n)) + p * 0.4 * CGFloat(ri + 1)
-                    let r = (cfg.baseR + p * cfg.rOff) * s
-                    let col = colors[(i + ri * 3) % colors.count]
-                    let brightness = 0.5 + CGFloat(sin(p * 2 * .pi + CGFloat(i) * 0.5)) * 0.45
-                    glowDot(&ctx, x: cx + cos(a)*r, y: cy + sin(a)*r,
-                            r: cfg.rDot*s, color: col.opacity(max(0.15, brightness)))
-                }
-            }
-            glowDot(&ctx, x: cx, y: cy, r: (3+p)*s, color: .white.opacity(0.8))
+            let half = sz.width / 2; let cx = half; let cy = half
+            let s = sz.width / 400; let t = CGFloat(spin / 60)
+            ctx.blendMode = .screen
+            // 外側 — 散逸 outward
+            organicRingGroup(&ctx, cx: cx, cy: cy, t: t,
+                             count: 16, baseR: half*0.78, maxAmp: half*0.16,
+                             speedBase: 0.55, waveDir:  1,
+                             color: green, lw: s*1.8, opacity: 0.35, seed: 0)
+            // 中間 — やや広がり
+            organicRingGroup(&ctx, cx: cx, cy: cy, t: t,
+                             count: 14, baseR: half*0.55, maxAmp: half*0.22,
+                             speedBase: 0.45, waveDir:  1,
+                             color: cyan,  lw: s*1.6, opacity: 0.35, seed: 16)
+            // 内側 — inward で核へ向かう
+            organicRingGroup(&ctx, cx: cx, cy: cy, t: t,
+                             count: 10, baseR: half*0.32, maxAmp: half*0.20,
+                             speedBase: 0.62, waveDir: -1,
+                             color: green, lw: s*1.4, opacity: 0.30, seed: 30)
         }
     }
 }
 
-// MARK: - 6. 固定リスナー  ── 安定した1本の波形
+// MARK: - 6. 固定リスナー ── 安定した低振幅の単一リング
 
 private struct LoyalListenerWave: View {
-    let size: CGFloat; let phase: Double
-    private let c = Color(red: 0.30, green: 0.60, blue: 1.0)
+    let size: CGFloat; let phase: Double; let spin: Double
+    private let blue = Color(red: 0.20, green: 0.55, blue: 1.00)
+    private let sky  = Color(red: 0.50, green: 0.78, blue: 1.00)
     var body: some View {
         Canvas { ctx, sz in
-            let s  = sz.width / 140
-            let cx = sz.width / 2, cy = sz.height / 2
-
-            // Subtle ring glow
-            var ring = Path()
-            ring.addArc(center: CGPoint(x: cx, y: cy), radius: 42*s,
-                        startAngle: .zero, endAngle: .radians(2 * .pi), clockwise: false)
-            ctx.stroke(ring, with: .color(c.opacity(0.18)), lineWidth: 1.5*s)
-
-            // Single stable sine wave — very small amplitude, slow drift
-            let amp = (5 + phase * 2) * s
-            let path = makeHorizWavePath(x1: cx-50*s, x2: cx+50*s, cy: cy,
-                                         amplitude: amp, freq: 1.5,
-                                         phaseOff: CGFloat(phase * .pi * 0.6))
-            glowStroke(&ctx, path: path, color: c, width: 2.8*s, glow: 0.25, opacity: 1.0)
+            let half = sz.width / 2; let cx = half; let cy = half
+            let s = sz.width / 400; let t = CGFloat(spin / 60)
+            ctx.blendMode = .screen
+            // 極めて低振幅 → ほぼ平坦・安定感
+            organicRingGroup(&ctx, cx: cx, cy: cy, t: t,
+                             count: 18, baseR: half*0.60, maxAmp: half*0.055,
+                             speedBase: 0.20, waveDir:  1,
+                             color: blue, lw: s*2.6, opacity: 0.48, seed: 0)
+            organicRingGroup(&ctx, cx: cx, cy: cy, t: t,
+                             count: 12, baseR: half*0.52, maxAmp: half*0.040,
+                             speedBase: 0.16, waveDir: -1,
+                             color: sky,  lw: s*1.6, opacity: 0.36, seed: 18)
         }
     }
 }
 
-// MARK: - 7. 成長型リスナー  ── 下から上へ成長する水平バー群
+// MARK: - 7. 成長型リスナー ── 内から外へ段階的に成長する波形
 
 private struct GrowingListenerWave: View {
-    let size: CGFloat; let phase: Double
-    private let c = Color(red: 0.20, green: 0.90, blue: 0.70)
+    let size: CGFloat; let phase: Double; let spin: Double
+    private let teal    = Color(red: 0.15, green: 0.88, blue: 0.68)
+    private let emerald = Color(red: 0.18, green: 0.72, blue: 0.52)
     var body: some View {
         Canvas { ctx, sz in
-            let s  = sz.width / 140
-            let cx = sz.width / 2, cy = sz.height / 2
-            let p  = CGFloat(phase)
-
-            // 6 horizontal bars: bottom short/dim → top long/bright
-            let bars: [(yOff: CGFloat, halfW: CGFloat, op: Double)] = [
-                (28, 12, 0.22),
-                (18, 20, 0.35),
-                (8,  30, 0.50),
-                (-2, 38, 0.65),
-                (-12,44, 0.80),
-                (-22,48, 0.95),
-            ]
-            for bar in bars {
-                let hw = bar.halfW * s * (0.75 + p * 0.25)
-                var path = Path()
-                path.move(to: CGPoint(x: cx - hw, y: cy + bar.yOff*s))
-                path.addLine(to: CGPoint(x: cx + hw, y: cy + bar.yOff*s))
-                glowStroke(&ctx, path: path, color: c, width: 2.5*s,
-                           glow: 0.20, opacity: bar.op + phase * 0.05)
-            }
+            let half = sz.width / 2; let cx = half; let cy = half
+            let s = sz.width / 400; let t = CGFloat(spin / 60)
+            ctx.blendMode = .screen
+            // 内側の種 (小)
+            organicRingGroup(&ctx, cx: cx, cy: cy, t: t,
+                             count: 10, baseR: half*0.22, maxAmp: half*0.12,
+                             speedBase: 0.52, waveDir:  1,
+                             color: teal,    lw: s*1.2, opacity: 0.28, seed: 0)
+            // 中間の成長 (中)
+            organicRingGroup(&ctx, cx: cx, cy: cy, t: t,
+                             count: 14, baseR: half*0.44, maxAmp: half*0.18,
+                             speedBase: 0.42, waveDir:  1,
+                             color: emerald, lw: s*1.8, opacity: 0.36, seed: 10)
+            // 外側の成熟 (大・最も明るい)
+            organicRingGroup(&ctx, cx: cx, cy: cy, t: t,
+                             count: 18, baseR: half*0.65, maxAmp: half*0.22,
+                             speedBase: 0.32, waveDir:  1,
+                             color: teal,    lw: s*2.2, opacity: 0.42, seed: 24)
         }
     }
 }
 
-// MARK: - 8. 懐古リスナー  ── 過去波形の残像が重なる
+// MARK: - 8. 懐古リスナー ── 3層フェード残像波形
 
 private struct NostalgicWave: View {
-    let size: CGFloat; let phase: Double
-    private let c = Color(red: 0.70, green: 0.40, blue: 0.90)
-    private let w = Color(red: 0.92, green: 0.80, blue: 0.62) // sepia
+    let size: CGFloat; let phase: Double; let spin: Double
+    private let purple   = Color(red: 0.65, green: 0.35, blue: 0.88)
+    private let sepia    = Color(red: 0.88, green: 0.72, blue: 0.52)
+    private let lavender = Color(red: 0.82, green: 0.65, blue: 0.98)
     var body: some View {
         Canvas { ctx, sz in
-            let s  = sz.width / 140
-            let cx = sz.width / 2, cy = sz.height / 2
-            let p  = CGFloat(phase)
-
-            // 4 echoes: most-faded (oldest) → bright (newest)
-            let echoes: [(yOff: CGFloat, phAdd: CGFloat, op: Double, useSepia: Bool)] = [
-                (16, 2.0, 0.16, true),
-                ( 9, 1.3, 0.32, true),
-                ( 3, 0.6, 0.54, false),
-                ( 0, 0.0, 0.85, false),
-            ]
-            for echo in echoes {
-                let yPos = cy - echo.yOff*s - p * echo.yOff * 0.35 * s
-                let pOff = p * .pi * 2 - echo.phAdd
-                let path = makeHorizWavePath(x1: cx-50*s, x2: cx+50*s, cy: yPos,
-                                             amplitude: (9+p*2)*s, freq: 2, phaseOff: pOff)
-                let col: Color = echo.useSepia ? w : c
-                glowStroke(&ctx, path: path, color: col, width: (echo.op > 0.5 ? 2.5 : 1.6)*s,
-                           glow: 0.15, opacity: echo.op)
-            }
+            let half = sz.width / 2; let cx = half; let cy = half
+            let s = sz.width / 400; let t = CGFloat(spin / 60)
+            ctx.blendMode = .screen
+            // 過去(最遠・最薄)
+            organicRingGroup(&ctx, cx: cx, cy: cy, t: t,
+                             count: 12, baseR: half*0.72, maxAmp: half*0.16,
+                             speedBase: 0.22, waveDir:  1,
+                             color: sepia,   lw: s*1.2, opacity: 0.22, seed: 0)
+            // 中間残像
+            organicRingGroup(&ctx, cx: cx, cy: cy, t: t,
+                             count: 12, baseR: half*0.55, maxAmp: half*0.15,
+                             speedBase: 0.28, waveDir: -1,
+                             color: purple,  lw: s*1.6, opacity: 0.34, seed: 12)
+            // 現在(最近・最明)
+            organicRingGroup(&ctx, cx: cx, cy: cy, t: t,
+                             count: 10, baseR: half*0.38, maxAmp: half*0.14,
+                             speedBase: 0.36, waveDir:  1,
+                             color: lavender,lw: s*2.0, opacity: 0.44, seed: 24)
         }
     }
 }
 
-// MARK: - 9. ジャンル偏愛家  ── 狭帯域に密集した縦スパイク群
+// MARK: - 9. ジャンル偏愛家 ── 狭帯域に密集した高密度リング
 
 private struct GenreAddictWave: View {
-    let size: CGFloat; let phase: Double
-    private let c = Color(red: 1.0, green: 0.32, blue: 0.10)
+    let size: CGFloat; let phase: Double; let spin: Double
+    private let red    = Color(red: 0.95, green: 0.22, blue: 0.08)
+    private let orange = Color(red: 1.00, green: 0.55, blue: 0.10)
     var body: some View {
         Canvas { ctx, sz in
-            let s  = sz.width / 140
-            let cx = sz.width / 2, cy = sz.height / 2
-            let p  = CGFloat(phase)
-
-            // 12 vertical bars varying heights, narrow column
-            let nBars = 12
-            let totalW: CGFloat = 56 * s
-            for i in 0..<nBars {
-                let t = CGFloat(i) / CGFloat(nBars - 1)
-                let x = cx - totalW/2 + t * totalW
-                // Height envelope: taller in center
-                let envelope = 1.0 - pow(abs(t - 0.5) * 1.8, 1.4)
-                let h = max(4, (14 + envelope * 36 + CGFloat(sin(p * .pi * 2 + t * 8)) * 10)) * s
-                var bar = Path()
-                bar.move(to: CGPoint(x: x, y: cy + 2*s))
-                bar.addLine(to: CGPoint(x: x, y: cy + 2*s - h))
-                let op = 0.45 + envelope * 0.55
-                glowStroke(&ctx, path: bar, color: c, width: 3*s, glow: 0.20, opacity: min(1, op))
-            }
-            // Bottom baseline
-            var base = Path()
-            base.move(to: CGPoint(x: cx - totalW/2 - 4*s, y: cy + 2*s))
-            base.addLine(to: CGPoint(x: cx + totalW/2 + 4*s, y: cy + 2*s))
-            ctx.stroke(base, with: .color(c.opacity(0.40)), lineWidth: 1.2*s)
+            let half = sz.width / 2; let cx = half; let cy = half
+            let s = sz.width / 400; let t = CGFloat(spin / 60)
+            ctx.blendMode = .screen
+            organicRingGroup(&ctx, cx: cx, cy: cy, t: t,
+                             count: 20, baseR: half*0.64, maxAmp: half*0.10,
+                             speedBase: 0.48, waveDir:  1,
+                             color: red,    lw: s*2.0, opacity: 0.42, seed: 0)
+            organicRingGroup(&ctx, cx: cx, cy: cy, t: t,
+                             count: 18, baseR: half*0.57, maxAmp: half*0.09,
+                             speedBase: 0.58, waveDir: -1,
+                             color: orange, lw: s*1.8, opacity: 0.40, seed: 20)
+            organicRingGroup(&ctx, cx: cx, cy: cy, t: t,
+                             count: 10, baseR: half*0.50, maxAmp: half*0.06,
+                             speedBase: 0.70, waveDir:  1,
+                             color: red,    lw: s*1.5, opacity: 0.30, seed: 38)
+            // 帯域の境界を示すコアリング
+            ctx.blendMode = .normal
+            var ring = Path()
+            ring.addArc(center: CGPoint(x: cx, y: cy), radius: half*0.38,
+                        startAngle: .zero, endAngle: .radians(2 * .pi), clockwise: false)
+            ctx.fill(ring,   with: .color(.black))
+            ctx.stroke(ring, with: .color(red.opacity(0.75)),    lineWidth: s*1.8)
+            ctx.stroke(ring, with: .color(orange.opacity(0.28)), lineWidth: s*6.0)
         }
     }
 }
 
-// MARK: - 10. バランス型  ── 5色の同心円が穏やかに拍動・回転
+// MARK: - 10. バランス型 ── 5色の均等同心有機リング
 
 private struct BalancedWave: View {
     let size: CGFloat; let phase: Double; let spin: Double
     var body: some View {
         Canvas { ctx, sz in
-            let s  = sz.width / 140
-            let cx = sz.width / 2, cy = sz.height / 2
-            let p  = CGFloat(phase)
-            let sr = CGFloat(spin * .pi / 180)
-
-            // 5 concentric ring-waves, rainbow colors — each ring waves gently
-            let rings: [(r: CGFloat, col: Color, wc: Int)] = [
-                (44, Color(red: 1.0, green: 0.40, blue: 0.40), 6),
-                (34, Color(red: 1.0, green: 0.80, blue: 0.25), 5),
-                (25, Color(red: 0.40, green: 0.90, blue: 0.45), 4),
-                (17, Color(red: 0.35, green: 0.70, blue: 1.00), 3),
-                (9,  Color(red: 0.80, green: 0.40, blue: 1.00), 3),
+            let half = sz.width / 2; let cx = half; let cy = half
+            let s = sz.width / 400; let t = CGFloat(spin / 60)
+            ctx.blendMode = .screen
+            // 5色リング — 低彩度マルチカラー、均等間隔
+            let rings: [(r: CGFloat, col: Color, dir: CGFloat, sd: Int)] = [
+                (half*0.78, Color(red: 0.88, green: 0.40, blue: 0.40),  1, 0),
+                (half*0.61, Color(red: 0.90, green: 0.75, blue: 0.22), -1, 8),
+                (half*0.44, Color(red: 0.32, green: 0.82, blue: 0.48),  1, 16),
+                (half*0.28, Color(red: 0.30, green: 0.60, blue: 0.95), -1, 24),
+                (half*0.13, Color(red: 0.72, green: 0.35, blue: 0.90),  1, 32),
             ]
-            for (i, ring) in rings.enumerated() {
-                let baseR = ring.r * s * (0.95 + p * 0.06)
-                let amp   = ring.r * s * 0.04 * p
-                let phOff = sr * 0.12 * CGFloat(i + 1)
-                let path  = makeRingWavePath(cx: cx, cy: cy, baseR: baseR,
-                                             amplitude: amp, waveCount: ring.wc, phaseOff: phOff)
-                glowStroke(&ctx, path: path, color: ring.col, width: 2.2*s, glow: 0.22, opacity: 0.88)
+            for ring in rings {
+                organicRingGroup(&ctx, cx: cx, cy: cy, t: t,
+                                 count: 8, baseR: ring.r, maxAmp: half*0.07,
+                                 speedBase: 0.30 + ring.r/half * 0.10,
+                                 waveDir: ring.dir,
+                                 color: ring.col, lw: s*2.0, opacity: 0.40,
+                                 seed: ring.sd)
             }
-            glowDot(&ctx, x: cx, y: cy, r: (3+p)*s, color: .white.opacity(0.95))
         }
     }
 }
 
-// MARK: - 11. コレクター(CD派)  ── 同心環波形のディスク構造
+// MARK: - 11. コレクター(CD派) ── レコード溝のような多重同心リング
 
 private struct CollectorWave: View {
     let size: CGFloat; let phase: Double; let spin: Double
-    private let c = Color(red: 1.0, green: 0.78, blue: 0.30)
+    private let gold      = Color(red: 0.95, green: 0.72, blue: 0.28)
+    private let warmWhite = Color(red: 1.00, green: 0.95, blue: 0.85)
     var body: some View {
         Canvas { ctx, sz in
-            let s  = sz.width / 140
-            let cx = sz.width / 2, cy = sz.height / 2
-            let p  = CGFloat(phase)
-            let sr = CGFloat(spin * .pi / 180)
-
-            let rings: [(r: CGFloat, cnt: Int, amp: CGFloat, op: Double, lw: CGFloat)] = [
-                (47, 20, 1.5, 0.40, 1.4),
-                (38, 16, 2.0, 0.55, 1.8),
-                (30, 12, 2.5, 0.68, 2.1),
-                (22, 10, 2.2, 0.80, 2.4),
-                (14,  8, 1.8, 0.90, 2.8),
-            ]
-            for ring in rings {
-                let path = makeRingWavePath(cx: cx, cy: cy, baseR: ring.r*s,
-                                            amplitude: ring.amp*s*(1+p*0.4),
-                                            waveCount: ring.cnt, phaseOff: sr*0.25)
-                glowStroke(&ctx, path: path, color: c, width: ring.lw*s,
-                           glow: 0.18, opacity: ring.op + p*0.08)
-            }
-            glowDot(&ctx, x: cx, y: cy, r: (5+p*2)*s, color: .white.opacity(0.95))
-            glowDot(&ctx, x: cx, y: cy, r: 2*s, color: c.opacity(0.9))
+            let half = sz.width / 2; let cx = half; let cy = half
+            let s = sz.width / 400; let t = CGFloat(spin / 60)
+            ctx.blendMode = .screen
+            // 外周溝
+            organicRingGroup(&ctx, cx: cx, cy: cy, t: t,
+                             count: 22, baseR: half*0.80, maxAmp: half*0.055,
+                             speedBase: 0.18, waveDir:  1,
+                             color: gold,      lw: s*1.5, opacity: 0.38, seed: 0)
+            // 中間溝
+            organicRingGroup(&ctx, cx: cx, cy: cy, t: t,
+                             count: 20, baseR: half*0.62, maxAmp: half*0.055,
+                             speedBase: 0.20, waveDir: -1,
+                             color: warmWhite, lw: s*1.5, opacity: 0.35, seed: 22)
+            // 内周溝
+            organicRingGroup(&ctx, cx: cx, cy: cy, t: t,
+                             count: 16, baseR: half*0.44, maxAmp: half*0.055,
+                             speedBase: 0.22, waveDir:  1,
+                             color: gold,      lw: s*1.5, opacity: 0.30, seed: 42)
+            // レーベル部分
+            organicRingGroup(&ctx, cx: cx, cy: cy, t: t,
+                             count:  6, baseR: half*0.22, maxAmp: half*0.040,
+                             speedBase: 0.28, waveDir: -1,
+                             color: warmWhite, lw: s*1.8, opacity: 0.42, seed: 58)
+            // スピンドル穴
+            ctx.blendMode = .normal
+            var dot = Path()
+            dot.addArc(center: CGPoint(x: cx, y: cy), radius: half*0.07,
+                       startAngle: .zero, endAngle: .radians(2 * .pi), clockwise: false)
+            ctx.fill(dot,   with: .color(.black))
+            ctx.stroke(dot, with: .color(gold.opacity(0.85)), lineWidth: s*2.0)
         }
     }
 }
 
-// MARK: - 12. サブスク派  ── 左から右へ流れる4本のストリーム
+// MARK: - 12. サブスク派 ── 左から右へ流動するストリーム波形
 
 private struct StreamingFanWave: View {
-    let size: CGFloat; let phase: Double
-    private let c = Color(red: 0.30, green: 0.85, blue: 1.0)
+    let size: CGFloat; let phase: Double; let spin: Double
+    private let cyan  = Color(red: 0.20, green: 0.82, blue: 1.00)
+    private let white = Color(red: 0.80, green: 0.95, blue: 1.00)
     var body: some View {
         Canvas { ctx, sz in
-            let s  = sz.width / 140
-            let cx = sz.width / 2, cy = sz.height / 2
-            let p  = CGFloat(phase)
-            let flowOff = p * 2 * .pi * -1  // rightward flow
-
-            let streams: [(yOff: CGFloat, amp: CGFloat, op: Double, lw: CGFloat)] = [
-                (-20, 5,  0.40, 1.6),
-                (-7,  9,  0.68, 2.4),
-                (7,   9,  0.68, 2.4),
-                (20,  5,  0.40, 1.6),
+            let half = sz.width / 2; let cx = half; let cy = half
+            let s = sz.width / 400; let t = CGFloat(spin / 60)
+            ctx.blendMode = .screen
+            // 4本のストリームを異なるy位置で
+            let streams: [(yOff: CGFloat, col: Color, op: Double, sd: Int)] = [
+                (-half*0.32, cyan,  0.34,  0),
+                (-half*0.11, white, 0.44, 10),
+                ( half*0.11, white, 0.44, 20),
+                ( half*0.32, cyan,  0.34, 30),
             ]
             for stream in streams {
-                let path = makeHorizWavePath(x1: cx-52*s, x2: cx+52*s,
-                                             cy: cy + stream.yOff*s,
-                                             amplitude: stream.amp*s, freq: 1.5,
-                                             phaseOff: flowOff)
-                glowStroke(&ctx, path: path, color: c, width: stream.lw*s,
-                           glow: 0.20, opacity: stream.op)
-            }
-            // Leading edge glow dots
-            let dotX = cx - 52*s + p * 104*s
-            for dy: CGFloat in [-20, -7, 7, 20] {
-                glowDot(&ctx, x: dotX, y: cy+dy*s, r: 3*s,
-                        color: .white.opacity(max(0, 0.7 - abs(Double(dy))/28.0 * 0.4)))
+                organicStreamGroup(&ctx, cx: cx, yCenter: cy + stream.yOff,
+                                   halfW: half*0.82, t: t,
+                                   count: 10, maxAmp: half*0.055,
+                                   speedBase: 0.50,
+                                   color: stream.col, lw: s*2.0,
+                                   opacity: stream.op, seed: stream.sd)
             }
         }
     }
 }
 
-// MARK: - Path Factories
+// MARK: - Organic Ring Helpers
 
-private func makeHorizWavePath(x1: CGFloat, x2: CGFloat, cy: CGFloat,
-                                amplitude: CGFloat, freq: CGFloat, phaseOff: CGFloat,
-                                steps: Int = 80) -> Path {
-    var path = Path()
-    for i in 0...steps {
-        let t = CGFloat(i) / CGFloat(steps)
-        let pt = CGPoint(x: x1 + (x2 - x1)*t,
-                         y: cy + amplitude * sin(2 * .pi * freq * t + phaseOff))
-        if i == 0 { path.move(to: pt) } else { path.addLine(to: pt) }
-    }
-    return path
-}
-
-private func makeRingWavePath(cx: CGFloat, cy: CGFloat, baseR: CGFloat,
-                               amplitude: CGFloat, waveCount: Int, phaseOff: CGFloat,
-                               steps: Int = 120) -> Path {
-    var path = Path()
-    for i in 0...steps {
-        let a = CGFloat(i) / CGFloat(steps) * 2 * .pi
-        let r = baseR + amplitude * sin(CGFloat(waveCount) * a + phaseOff)
-        let pt = CGPoint(x: cx + cos(a)*r, y: cy + sin(a)*r)
-        if i == 0 { path.move(to: pt) } else { path.addLine(to: pt) }
-    }
-    path.closeSubpath()
-    return path
-}
-
-private func makeConvergingPath(cx: CGFloat, cy: CGFloat, length: CGFloat, angle: CGFloat,
-                                 amplitude: CGFloat, freq: CGFloat, phaseOff: CGFloat,
-                                 steps: Int = 80) -> Path {
-    var path = Path()
-    let px = -sin(angle), py = cos(angle)
-    for i in 0...steps {
-        let t = CGFloat(i) / CGFloat(steps)
-        let dist = (t - 0.5) * length
-        let base = CGPoint(x: cx + cos(angle)*dist, y: cy + sin(angle)*dist)
-        let wave = amplitude * abs(t - 0.5) * 2 * sin(2 * .pi * freq * t + phaseOff)
-        let pt = CGPoint(x: base.x + px*wave, y: base.y + py*wave)
-        if i == 0 { path.move(to: pt) } else { path.addLine(to: pt) }
-    }
-    return path
-}
-
-// MARK: - Organic Ring Helpers (hebirote.html移植)
-
-/// 複数の有機的波形パスを円形に描画する（hebirote.html の processLayers に対応）
 private func organicRingGroup(_ ctx: inout GraphicsContext,
                                cx: CGFloat, cy: CGFloat,
                                t: CGFloat, count: Int,
@@ -527,90 +470,106 @@ private func organicRingGroup(_ ctx: inout GraphicsContext,
                                speedBase: CGFloat, waveDir: CGFloat,
                                color: Color, lw: CGFloat, opacity: Double, seed: Int) {
     for i in 0..<count {
-        let f = CGFloat(i + seed)
-        // 黄金比で位相を均等分散
+        let f   = CGFloat(i + seed)
         let ph  = f * CGFloat.pi * 1.6180339887
         let spd = speedBase + f.truncatingRemainder(dividingBy: 7) * 0.09
-        // 3つのサイン波で有機的な振幅スケールを合成（HTML の seeds に対応）
-        let v0 = 0.28 + f.truncatingRemainder(dividingBy: 5) * 0.13
-        let v1 = 0.52 + f.truncatingRemainder(dividingBy: 7) * 0.08
-        let v2 = 0.81 + f.truncatingRemainder(dividingBy: 4) * 0.08
-        let ds = (sin(t*v0 + f*1.10) + sin(t*v1 + f*2.30) + sin(t*v2 + f*3.70)) / 3
-        let scl = CGFloat((ds + 1) * 0.5)                  // 0→1
-        // 各レイヤー固有のゆっくり自転（HTML の currentRot += rotSpeed に対応）
+        let v0  = 0.28 + f.truncatingRemainder(dividingBy: 5) * 0.13
+        let v1  = 0.52 + f.truncatingRemainder(dividingBy: 7) * 0.08
+        let v2  = 0.81 + f.truncatingRemainder(dividingBy: 4) * 0.08
+        let ds  = (sin(t*v0 + f*1.10) + sin(t*v1 + f*2.30) + sin(t*v2 + f*3.70)) / 3
+        let scl = CGFloat((ds + 1) * 0.5)
         let rotSpd = (f.truncatingRemainder(dividingBy: 11) - 5.0) / 5.0 * 0.048
-        let rot   = t * rotSpd
-        // 波形位相（HTML: time*speed + phaseOffset と -time*speed*0.8）
-        let detPh = t * spd + ph
-        let jitPh = -(t * spd * 0.8) + ph * 1.3
-
+        let detPh  = t * spd + ph
+        let jitPh  = -(t * spd * 0.8) + ph * 1.3
         let path = makeOrganicRingPath(cx: cx, cy: cy, baseR: baseR, maxAmp: maxAmp,
                                        detPh: detPh, jitPh: jitPh,
-                                       scale: scl, rot: rot, dir: waveDir)
+                                       scale: scl, rot: t * rotSpd, dir: waveDir)
         ctx.stroke(path, with: .color(color.opacity(opacity)), lineWidth: lw)
     }
 }
 
-/// HTML の getSmoothPath + 波形計算に対応するパス生成
-/// detail = sin(angle*6 + detPh)*0.7, jitter = sin(angle*12 + jitPh)*0.1
 private func makeOrganicRingPath(cx: CGFloat, cy: CGFloat,
                                   baseR: CGFloat, maxAmp: CGFloat,
                                   detPh: CGFloat, jitPh: CGFloat,
                                   scale: CGFloat, rot: CGFloat, dir: CGFloat,
                                   segs: Int = 20) -> Path {
-    var pts = [CGPoint]()
-    pts.reserveCapacity(segs)
+    var pts = [CGPoint](); pts.reserveCapacity(segs)
     for n in 0..<segs {
-        let a  = CGFloat(n) / CGFloat(segs) * 2 * .pi
+        let a   = CGFloat(n) / CGFloat(segs) * 2 * .pi
         let det = sin(a * 6 + detPh) * 0.7
         let jit = sin(a * 12 + jitPh) * 0.1
-        let r  = baseR + (det + jit) * maxAmp * scale * dir
-        let fa = a + rot
+        let r   = baseR + (det + jit) * maxAmp * scale * dir
+        let fa  = a + rot
         pts.append(CGPoint(x: cx + r * cos(fa), y: cy + r * sin(fa)))
     }
     return catmullRomClosed(pts)
 }
 
-/// HTML の getSmoothPath（Catmull-Rom → cubic Bezier）に対応
 private func catmullRomClosed(_ pts: [CGPoint]) -> Path {
-    let n = pts.count
-    guard n >= 2 else { return Path() }
-    var path = Path()
-    path.move(to: pts[0])
+    let n = pts.count; guard n >= 2 else { return Path() }
+    var path = Path(); path.move(to: pts[0])
     for i in 0..<n {
-        let p0 = pts[(i - 1 + n) % n]
-        let p1 = pts[i]
-        let p2 = pts[(i + 1) % n]
-        let p3 = pts[(i + 2) % n]
-        let cp1 = CGPoint(x: p1.x + (p2.x - p0.x) / 6,
-                          y: p1.y + (p2.y - p0.y) / 6)
-        let cp2 = CGPoint(x: p2.x - (p3.x - p1.x) / 6,
-                          y: p2.y - (p3.y - p1.y) / 6)
+        let p0 = pts[(i - 1 + n) % n]; let p1 = pts[i]
+        let p2 = pts[(i + 1) % n];     let p3 = pts[(i + 2) % n]
+        let cp1 = CGPoint(x: p1.x + (p2.x - p0.x)/6, y: p1.y + (p2.y - p0.y)/6)
+        let cp2 = CGPoint(x: p2.x - (p3.x - p1.x)/6, y: p2.y - (p3.y - p1.y)/6)
         path.addCurve(to: p2, control1: cp1, control2: cp2)
     }
-    path.closeSubpath()
+    path.closeSubpath(); return path
+}
+
+// MARK: - Organic Stream Helpers (サブスク派専用)
+
+private func organicStreamGroup(_ ctx: inout GraphicsContext,
+                                 cx: CGFloat, yCenter: CGFloat,
+                                 halfW: CGFloat, t: CGFloat,
+                                 count: Int, maxAmp: CGFloat,
+                                 speedBase: CGFloat,
+                                 color: Color, lw: CGFloat, opacity: Double, seed: Int) {
+    for i in 0..<count {
+        let f   = CGFloat(i + seed)
+        let ph  = f * CGFloat.pi * 1.6180339887
+        let spd = speedBase + f.truncatingRemainder(dividingBy: 7) * 0.08
+        let v0  = 0.28 + f.truncatingRemainder(dividingBy: 5) * 0.13
+        let v1  = 0.52 + f.truncatingRemainder(dividingBy: 7) * 0.08
+        let ds  = (sin(t*v0 + f*1.10) + sin(t*v1 + f*2.30)) / 2
+        let scl = CGFloat((ds + 1) * 0.5)
+        // 右方向への流動 (flowPh 減少 = ピークが右へ移動)
+        let flowPh = -(t * spd) + ph
+        let path = makeOrganicStreamPath(cx: cx, yCenter: yCenter, halfW: halfW,
+                                          maxAmp: maxAmp, flowPh: flowPh, scale: scl)
+        ctx.stroke(path, with: .color(color.opacity(opacity)), lineWidth: lw)
+    }
+}
+
+private func makeOrganicStreamPath(cx: CGFloat, yCenter: CGFloat,
+                                    halfW: CGFloat, maxAmp: CGFloat,
+                                    flowPh: CGFloat, scale: CGFloat,
+                                    segs: Int = 40) -> Path {
+    var pts = [CGPoint](); pts.reserveCapacity(segs)
+    let x0 = cx - halfW, x1 = cx + halfW
+    for n in 0..<segs {
+        let u   = CGFloat(n) / CGFloat(segs - 1)
+        let x   = x0 + (x1 - x0) * u
+        let det = sin(u * .pi * 6 + flowPh) * 0.7
+        let jit = sin(u * .pi * 12 + flowPh * 1.3) * 0.1
+        let y   = yCenter + (det + jit) * maxAmp * scale
+        pts.append(CGPoint(x: x, y: y))
+    }
+    return catmullRomOpen(pts)
+}
+
+private func catmullRomOpen(_ pts: [CGPoint]) -> Path {
+    let n = pts.count; guard n >= 2 else { return Path() }
+    var path = Path(); path.move(to: pts[0])
+    for i in 0..<(n - 1) {
+        let p0 = pts[max(0, i - 1)]; let p1 = pts[i]
+        let p2 = pts[i + 1];          let p3 = pts[min(n - 1, i + 2)]
+        let cp1 = CGPoint(x: p1.x + (p2.x - p0.x)/6, y: p1.y + (p2.y - p0.y)/6)
+        let cp2 = CGPoint(x: p2.x - (p3.x - p1.x)/6, y: p2.y - (p3.y - p1.y)/6)
+        path.addCurve(to: p2, control1: cp1, control2: cp2)
+    }
     return path
-}
-
-// MARK: - Glow Helpers
-
-private func glowDot(_ ctx: inout GraphicsContext, x: CGFloat, y: CGFloat, r: CGFloat, color: Color) {
-    ctx.fill(waveEllipse(cx: x, cy: y, w: r*5.5, h: r*5.5), with: .color(color.opacity(0.07)))
-    ctx.fill(waveEllipse(cx: x, cy: y, w: r*3.2, h: r*3.2), with: .color(color.opacity(0.22)))
-    ctx.fill(waveEllipse(cx: x, cy: y, w: r*1.7, h: r*1.7), with: .color(color.opacity(0.65)))
-    ctx.fill(waveEllipse(cx: x, cy: y, w: r,     h: r),     with: .color(color.opacity(1.00)))
-}
-
-private func glowStroke(_ ctx: inout GraphicsContext, path: Path, color: Color,
-                         width: CGFloat, glow: Double, opacity: Double) {
-    ctx.stroke(path, with: .color(color.opacity(glow * 0.5)), lineWidth: width * 5.5)
-    ctx.stroke(path, with: .color(color.opacity(glow * 1.2)), lineWidth: width * 3.0)
-    ctx.stroke(path, with: .color(color.opacity(glow * 2.5)), lineWidth: width * 1.6)
-    ctx.stroke(path, with: .color(color.opacity(opacity)),    lineWidth: width)
-}
-
-private func waveEllipse(cx: CGFloat, cy: CGFloat, w: CGFloat, h: CGFloat) -> Path {
-    Path(ellipseIn: CGRect(x: cx - w/2, y: cy - h/2, width: w, height: h))
 }
 
 // MARK: - PersonalityBadgeView
