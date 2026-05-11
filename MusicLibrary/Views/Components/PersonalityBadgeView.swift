@@ -160,37 +160,39 @@ private struct SingleFocusWave: View {
     }
 }
 
-// MARK: - 4. ヘビロテ職人  ── 発光リングが回転 + 拍動
+// MARK: - 4. ヘビロテ職人  ── 循環する環形波形ループ
 
 private struct HeavyRotatorWave: View {
     let size: CGFloat; let phase: Double; let spin: Double
-    private let c = Color(red: 0.70, green: 0.20, blue: 1.0)
+    // 紫系ネオングロー + 青紫補助
+    private let mainC = Color(red: 0.62, green: 0.12, blue: 0.96)
+    private let echoC = Color(red: 0.32, green: 0.18, blue: 0.88)
+
     var body: some View {
         Canvas { ctx, sz in
             let s  = sz.width / 140
             let cx = sz.width / 2, cy = sz.height / 2
-            let p  = CGFloat(phase)
-            let sr = CGFloat(spin * .pi / 180)
 
-            // 3 concentric glowing rings — radii pulse with phase
-            for (baseR, op): (CGFloat, Double) in [(44, 0.9), (34, 0.55), (24, 0.35)] {
-                let r = (baseR + p * 2) * s
-                var ring = Path()
-                ring.addArc(center: CGPoint(x: cx, y: cy), radius: r,
-                            startAngle: .zero, endAngle: .radians(2 * .pi), clockwise: false)
-                glowStroke(&ctx, path: ring, color: c, width: (2.5 + p)*s, glow: 0.22, opacity: op)
-            }
+            // rot: linearly increasing (spin is never reversed) — シームレスな永続ループ
+            let rot = CGFloat(spin * .pi / 180)
 
-            // Dashes on outer ring rotating
-            let outerR = (44 + p * 2) * s
-            for i in 0..<20 {
-                let a = CGFloat(i) * (2 * .pi / 20) + sr
-                let brightness = 0.5 + sin(a * 3 + CGFloat(phase) * 2) * 0.4
-                glowDot(&ctx, x: cx + cos(a)*outerR, y: cy + sin(a)*outerR,
-                        r: (2 + p)*s, color: c.opacity(max(0.2, brightness)))
-            }
-            // Center dot — pulses
-            glowDot(&ctx, x: cx, y: cy, r: (4 + p*2)*s, color: c.opacity(0.7 + p*0.3))
+            // メイン環形波: 8周期、ゆっくり回転
+            let mainPath = makeRingWavePath(cx: cx, cy: cy, baseR: 44 * s,
+                                            amplitude: 3.5 * s, waveCount: 8,
+                                            phaseOff: rot)
+            glowStroke(&ctx, path: mainPath, color: mainC, width: 2.0*s, glow: 0.18, opacity: 0.95)
+
+            // エコー1: 1/4周期ずらした内側リング
+            let echo1 = makeRingWavePath(cx: cx, cy: cy, baseR: 34 * s,
+                                          amplitude: 2.6 * s, waveCount: 8,
+                                          phaseOff: rot + .pi * 0.25)
+            glowStroke(&ctx, path: echo1, color: echoC, width: 1.5*s, glow: 0.13, opacity: 0.55)
+
+            // エコー2: 1/2周期ずらした最内リング — 中央は空間を空ける
+            let echo2 = makeRingWavePath(cx: cx, cy: cy, baseR: 25 * s,
+                                          amplitude: 1.8 * s, waveCount: 8,
+                                          phaseOff: rot + .pi * 0.50)
+            glowStroke(&ctx, path: echo2, color: echoC, width: 1.2*s, glow: 0.10, opacity: 0.28)
         }
     }
 }
