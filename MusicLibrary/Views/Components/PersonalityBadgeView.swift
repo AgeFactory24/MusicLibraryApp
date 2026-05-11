@@ -160,39 +160,30 @@ private struct SingleFocusWave: View {
     }
 }
 
-// MARK: - 4. ヘビロテ職人  ── 循環する環形波形ループ
+// MARK: - 4. ヘビロテ職人  ── 均等分割リングが反転回転する催眠ループ
 
 private struct HeavyRotatorWave: View {
     let size: CGFloat; let phase: Double; let spin: Double
-    // 紫系ネオングロー + 青紫補助
-    private let mainC = Color(red: 0.62, green: 0.12, blue: 0.96)
-    private let echoC = Color(red: 0.32, green: 0.18, blue: 0.88)
+    private let mainC = Color(red: 0.60, green: 0.10, blue: 0.95)   // 紫ネオン
+    private let echoC = Color(red: 0.28, green: 0.12, blue: 0.88)   // 青紫
 
     var body: some View {
         Canvas { ctx, sz in
-            let s  = sz.width / 140
-            let cx = sz.width / 2, cy = sz.height / 2
+            let s   = sz.width / 140
+            let cx  = sz.width / 2, cy = sz.height / 2
+            let rot = CGFloat(spin * .pi / 180)   // 線形増加のみ — 折り返しなし
 
-            // rot: linearly increasing (spin is never reversed) — シームレスな永続ループ
-            let rot = CGFloat(spin * .pi / 180)
+            // メインリング: 16セグメント、時計回り
+            drawArcRing(&ctx, cx: cx, cy: cy, r: 44*s, n: 16, coverage: 0.60,
+                        rotation: rot, color: mainC, lw: 2.2*s, glow: 0.16, opacity: 0.93)
 
-            // メイン環形波: 8周期、ゆっくり回転
-            let mainPath = makeRingWavePath(cx: cx, cy: cy, baseR: 44 * s,
-                                            amplitude: 3.5 * s, waveCount: 8,
-                                            phaseOff: rot)
-            glowStroke(&ctx, path: mainPath, color: mainC, width: 2.0*s, glow: 0.18, opacity: 0.95)
+            // エコー1: 12セグメント、反時計回り（干渉で催眠感）
+            drawArcRing(&ctx, cx: cx, cy: cy, r: 34*s, n: 12, coverage: 0.55,
+                        rotation: -rot * 0.75, color: echoC, lw: 1.6*s, glow: 0.12, opacity: 0.50)
 
-            // エコー1: 1/4周期ずらした内側リング
-            let echo1 = makeRingWavePath(cx: cx, cy: cy, baseR: 34 * s,
-                                          amplitude: 2.6 * s, waveCount: 8,
-                                          phaseOff: rot + .pi * 0.25)
-            glowStroke(&ctx, path: echo1, color: echoC, width: 1.5*s, glow: 0.13, opacity: 0.55)
-
-            // エコー2: 1/2周期ずらした最内リング — 中央は空間を空ける
-            let echo2 = makeRingWavePath(cx: cx, cy: cy, baseR: 25 * s,
-                                          amplitude: 1.8 * s, waveCount: 8,
-                                          phaseOff: rot + .pi * 0.50)
-            glowStroke(&ctx, path: echo2, color: echoC, width: 1.2*s, glow: 0.10, opacity: 0.28)
+            // エコー2: 10セグメント、ゆっくり時計回り — 中央は空白を保つ
+            drawArcRing(&ctx, cx: cx, cy: cy, r: 25*s, n: 10, coverage: 0.50,
+                        rotation: rot * 0.45, color: echoC, lw: 1.1*s, glow: 0.09, opacity: 0.24)
         }
     }
 }
@@ -502,6 +493,26 @@ private func makeConvergingPath(cx: CGFloat, cy: CGFloat, length: CGFloat, angle
         if i == 0 { path.move(to: pt) } else { path.addLine(to: pt) }
     }
     return path
+}
+
+// MARK: - Arc Ring Helper
+
+/// n個の円弧セグメントを均等に円形配置して描画する（ヘビロテ職人専用）
+private func drawArcRing(_ ctx: inout GraphicsContext,
+                          cx: CGFloat, cy: CGFloat, r: CGFloat,
+                          n: Int, coverage: CGFloat, rotation: CGFloat,
+                          color: Color, lw: CGFloat, glow: Double, opacity: Double) {
+    let step   = 2 * CGFloat.pi / CGFloat(n)
+    let arcLen = step * coverage
+    for i in 0..<n {
+        let a = CGFloat(i) * step + rotation
+        var seg = Path()
+        seg.addArc(center: CGPoint(x: cx, y: cy), radius: r,
+                   startAngle: .radians(Double(a)),
+                   endAngle:   .radians(Double(a + arcLen)),
+                   clockwise: false)
+        glowStroke(&ctx, path: seg, color: color, width: lw, glow: glow, opacity: opacity)
+    }
 }
 
 // MARK: - Glow Helpers
