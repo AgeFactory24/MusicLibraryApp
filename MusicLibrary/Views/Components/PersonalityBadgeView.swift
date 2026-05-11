@@ -1,5 +1,5 @@
 // PersonalityBadgeView.swift
-// MusicLibrary — Waveform Universe Design System
+// MusicLibrary — Waveform Universe  Dark BG + Neon Glow
 
 import SwiftUI
 
@@ -11,26 +11,43 @@ struct PersonalityIconSymbol: View {
     var animated: Bool = false
 
     @State private var phase: Double = 0
-    @State private var spin: Double = 0
+    @State private var spin:  Double = 0
 
     var body: some View {
         ZStack {
+            Circle().fill(Color.black)
+                .frame(width: size, height: size)
             Circle()
-                .fill(LinearGradient(
-                    colors: personality.gradient,
-                    startPoint: .topLeading,
-                    endPoint: .bottomTrailing
-                ))
+                .fill(RadialGradient(
+                    colors: [neonColor.opacity(0.22), .clear],
+                    center: .center, startRadius: 0, endRadius: size * 0.5))
                 .frame(width: size, height: size)
-                .shadow(color: (personality.gradient.first ?? .pink).opacity(0.4),
-                        radius: size * 0.12)
-            iconLayer
-                .frame(width: size, height: size)
+            iconLayer.frame(width: size, height: size)
         }
+        .clipShape(Circle())
+        .shadow(color: neonColor.opacity(0.6), radius: size * 0.1)
         .onAppear {
             guard animated else { return }
             withAnimation(.easeInOut(duration: 1.6).repeatForever(autoreverses: true)) { phase = 1.0 }
-            withAnimation(.linear(duration: 6.0).repeatForever(autoreverses: false)) { spin = 360.0 }
+            withAnimation(.linear(duration: 6.0).repeatForever(autoreverses: false))  { spin  = 360.0 }
+        }
+    }
+
+    // Neon accent color per personality
+    private var neonColor: Color {
+        switch personality {
+        case .legend:          Color(red: 1.0, green: 0.82, blue: 0.20)
+        case .obsessedFan:     Color(red: 1.0, green: 0.20, blue: 0.60)
+        case .singleFocus:     Color(red: 0.30, green: 0.80, blue: 1.00)
+        case .heavyRotator:    Color(red: 0.70, green: 0.20, blue: 1.00)
+        case .explorer:        Color(red: 0.20, green: 0.90, blue: 0.50)
+        case .loyalListener:   Color(red: 0.30, green: 0.60, blue: 1.00)
+        case .growingListener: Color(red: 0.20, green: 0.90, blue: 0.70)
+        case .nostalgic:       Color(red: 0.70, green: 0.40, blue: 0.90)
+        case .genreAddict:     Color(red: 1.00, green: 0.30, blue: 0.10)
+        case .balanced:        Color(red: 0.70, green: 0.80, blue: 0.95)
+        case .collector:       Color(red: 1.00, green: 0.78, blue: 0.30)
+        case .streamingFan:    Color(red: 0.30, green: 0.85, blue: 1.00)
         }
     }
 
@@ -40,7 +57,7 @@ struct PersonalityIconSymbol: View {
         case .legend:          LegendWave(size: size, phase: phase, spin: spin)
         case .obsessedFan:     ObsessedFanWave(size: size, phase: phase)
         case .singleFocus:     SingleFocusWave(size: size, phase: phase)
-        case .heavyRotator:    HeavyRotatorWave(size: size, phase: phase, spin: spin)
+        case .heavyRotator:    HeavyRotatorWave(size: size, spin: spin)
         case .explorer:        ExplorerWave(size: size, phase: phase)
         case .loyalListener:   LoyalListenerWave(size: size, phase: phase)
         case .growingListener: GrowingListenerWave(size: size, phase: phase)
@@ -53,490 +70,448 @@ struct PersonalityIconSymbol: View {
     }
 }
 
-// MARK: - 1. レジェンド: 対称円環波形 Gold/White
+// MARK: - 1. レジェンド  ── 金粒子が2リングを周回
 
 private struct LegendWave: View {
-    let size: CGFloat
-    let phase: Double
-    let spin: Double
+    let size: CGFloat; let phase: Double; let spin: Double
+    private let c = Color(red: 1.0, green: 0.85, blue: 0.2)
     var body: some View {
         Canvas { ctx, sz in
             let s = sz.width / 140
             let cx = sz.width / 2, cy = sz.height / 2
-            let p = CGFloat(phase)
-            let spinRad = CGFloat(spin * .pi / 180)
-            let gold = Color(red: 1, green: 0.88, blue: 0.3)
+            let p  = CGFloat(phase)
+            let sr = CGFloat(spin * .pi / 180)
 
-            ctx.fill(waveEllipse(cx: cx, cy: cy, w: 90*s, h: 90*s), with: .color(.white.opacity(0.06)))
-            ctx.fill(waveEllipse(cx: cx, cy: cy, w: 60*s, h: 60*s), with: .color(.white.opacity(0.08)))
-
-            drawRingWave(&ctx, cx: cx, cy: cy, baseR: 46*s,
-                         amplitude: (4 + p*3)*s, waveCount: 8, phaseOffset: spinRad,
-                         color: gold, opacity: 0.90, lineWidth: 3*s)
-            drawRingWave(&ctx, cx: cx, cy: cy, baseR: 32*s,
-                         amplitude: (3 + p*2)*s, waveCount: 8, phaseOffset: -spinRad + .pi/8,
-                         color: .white, opacity: 0.72, lineWidth: 2.2*s)
-            drawRingWave(&ctx, cx: cx, cy: cy, baseR: 18*s,
-                         amplitude: (2 + p)*s, waveCount: 8, phaseOffset: spinRad*0.5 + .pi/4,
-                         color: .white, opacity: 0.55, lineWidth: 1.6*s)
-
-            let cr = (5 + p*3)*s
-            ctx.fill(waveEllipse(cx: cx, cy: cy, w: cr*2, h: cr*2), with: .color(gold.opacity(0.95)))
-            ctx.fill(waveEllipse(cx: cx, cy: cy, w: cr*1.4, h: cr*1.4), with: .color(.white.opacity(0.9)))
+            // outer ring: 16 particles
+            for i in 0..<16 {
+                let a = CGFloat(i) * (2 * .pi / 16) + sr
+                let brightness = 0.55 + CGFloat(sin(p * 2 * .pi + CGFloat(i) * 0.4)) * 0.4
+                glowDot(&ctx, x: cx + cos(a)*40*s, y: cy + sin(a)*40*s,
+                        r: 3.5*s, color: c.opacity(max(0.1, brightness)))
+            }
+            // inner ring: 8 particles (counter)
+            for i in 0..<8 {
+                let a = CGFloat(i) * (2 * .pi / 8) - sr * 0.7
+                let brightness = 0.5 + CGFloat(sin(p * 2 * .pi + CGFloat(i) * 0.8)) * 0.4
+                glowDot(&ctx, x: cx + cos(a)*22*s, y: cy + sin(a)*22*s,
+                        r: 2.8*s, color: c.opacity(max(0.1, brightness)))
+            }
+            // center pulse
+            glowDot(&ctx, x: cx, y: cy, r: (4 + p*2)*s, color: c.opacity(0.85 + p*0.15))
         }
     }
 }
 
-// MARK: - 2. 推しが本気: 1本の極端スパイク + 白熱光
+// MARK: - 2. 推しが本気  ── 極端な1本スパイク + 白熱コア
 
 private struct ObsessedFanWave: View {
-    let size: CGFloat
-    let phase: Double
+    let size: CGFloat; let phase: Double
+    private let c = Color(red: 1.0, green: 0.20, blue: 0.60)
     var body: some View {
         Canvas { ctx, sz in
-            let s = sz.width / 140
+            let s  = sz.width / 140
             let cx = sz.width / 2, cy = sz.height / 2
             let beat = CGFloat(abs(sin(phase * .pi * 2)))
+            let spikeH = (50 + beat * 20) * s
 
-            for (r, op): (CGFloat, Double) in [(55, 0.06), (40, 0.10), (26, 0.14)] {
-                let sc = 1 + beat * 0.12
-                ctx.fill(waveEllipse(cx: cx, cy: cy, w: r*s*2*sc, h: r*s*2*sc),
-                         with: .color(.white.opacity(op + beat * 0.07)))
+            // Glow spike layers (wide → narrow)
+            for (wMult, op): (CGFloat, Double) in [(5, 0.06), (3, 0.14), (1.5, 0.35), (1, 0.92)] {
+                let w = (2.5 + beat) * s * wMult
+                var p = Path()
+                p.move(to: CGPoint(x: cx - w, y: cy + 6*s))
+                p.addCurve(to: CGPoint(x: cx, y: cy - spikeH),
+                           control1: CGPoint(x: cx - w, y: cy - spikeH * 0.4),
+                           control2: CGPoint(x: cx - w * 0.3, y: cy - spikeH * 0.85))
+                p.addCurve(to: CGPoint(x: cx + w, y: cy + 6*s),
+                           control1: CGPoint(x: cx + w * 0.3, y: cy - spikeH * 0.85),
+                           control2: CGPoint(x: cx + w, y: cy - spikeH * 0.4))
+                ctx.fill(p, with: .color(c.opacity(op)))
             }
-
-            drawHorizWave(&ctx, x1: cx-52*s, x2: cx+52*s, cy: cy,
-                          amplitude: 3*s, frequency: 3, phaseOffset: CGFloat(phase * .pi * 2),
-                          color: .white, opacity: 0.35, lineWidth: 1.5*s)
-
-            let spikeH = (44 + beat*22)*s, spikeW = (4 + beat*2)*s
-            var spike = Path()
-            spike.move(to: CGPoint(x: cx - spikeW, y: cy))
-            spike.addCurve(to: CGPoint(x: cx, y: cy - spikeH),
-                           control1: CGPoint(x: cx - spikeW*0.8, y: cy - spikeH*0.5),
-                           control2: CGPoint(x: cx - spikeW*0.3, y: cy - spikeH*0.85))
-            spike.addCurve(to: CGPoint(x: cx + spikeW, y: cy),
-                           control1: CGPoint(x: cx + spikeW*0.3, y: cy - spikeH*0.85),
-                           control2: CGPoint(x: cx + spikeW*0.8, y: cy - spikeH*0.5))
-            ctx.fill(spike, with: .color(.white.opacity(0.88 + beat*0.12)))
-
-            let tipY = cy - spikeH, gs = 1 + beat*0.4
-            for (r, op): (CGFloat, Double) in [(18, 0.10), (12, 0.22), (7, 0.55), (4, 0.92)] {
-                ctx.fill(waveEllipse(cx: cx, cy: tipY, w: r*gs*s, h: r*gs*s),
-                         with: .color(.white.opacity(op + beat*0.08)))
-            }
+            // Tip incandescent core
+            glowDot(&ctx, x: cx, y: cy - spikeH, r: (5 + beat*3)*s, color: .white.opacity(0.9 + beat*0.1))
         }
     }
 }
 
-// MARK: - 3. 一点集中型: 中心へ収束する波形
+// MARK: - 3. 一点集中型  ── 4本の波線が中心へ収束
 
 private struct SingleFocusWave: View {
-    let size: CGFloat
-    let phase: Double
+    let size: CGFloat; let phase: Double
+    private let c = Color(red: 0.3, green: 0.80, blue: 1.0)
     var body: some View {
         Canvas { ctx, sz in
-            let s = sz.width / 140
+            let s  = sz.width / 140
             let cx = sz.width / 2, cy = sz.height / 2
-            let p = CGFloat(phase)
+            let p  = CGFloat(phase)
 
-            for (r, op): (CGFloat, Double) in [(26, 0.10), (16, 0.22), (9, 0.50)] {
-                ctx.fill(waveEllipse(cx: cx, cy: cy, w: r*(1+p*0.2)*s, h: r*(1+p*0.2)*s),
-                         with: .color(.white.opacity(op + phase*0.08)))
+            // 4 converging wave lines at 0°/45°/90°/135°
+            for (i, angle) in [CGFloat(0), .pi/4, .pi/2, .pi*3/4].enumerated() {
+                let pOff = p * 2 * .pi + CGFloat(i) * 0.9
+                let path = makeConvergingPath(cx: cx, cy: cy, length: 108*s,
+                                              angle: angle, amplitude: (10+p*4)*s,
+                                              freq: 2.5, phaseOff: pOff)
+                let op = 0.80 - Double(i) * 0.10
+                glowStroke(&ctx, path: path, color: c, width: (2.8 - CGFloat(i)*0.3)*s, glow: 0.18, opacity: op)
             }
-            ctx.fill(waveEllipse(cx: cx, cy: cy, w: (5+p*2)*s, h: (5+p*2)*s),
-                     with: .color(.white.opacity(0.97)))
-
-            let angles: [CGFloat]  = [0, .pi/3, -.pi/3]
-            let pOffs:  [CGFloat]  = [0, 1.0, 2.1]
-            for (i, angle) in angles.enumerated() {
-                drawConvergingWave(&ctx, cx: cx, cy: cy, length: 110*s, angle: angle,
-                                   amplitude: (11+p*3)*s, frequency: 2.5,
-                                   phaseOffset: pOffs[i] + p*2*CGFloat.pi,
-                                   color: .white,
-                                   opacity: 0.78 - Double(i)*0.14,
-                                   lineWidth: (2.5 - CGFloat(i)*0.3)*s)
-            }
+            // Center convergence glow
+            glowDot(&ctx, x: cx, y: cy, r: (6 + p*2)*s, color: .white.opacity(0.95))
         }
     }
 }
 
-// MARK: - 4. ヘビロテ職人: 完全円形ループ、紫ネオン
+// MARK: - 4. ヘビロテ職人  ── 発光リングが回転
 
 private struct HeavyRotatorWave: View {
-    let size: CGFloat
-    let phase: Double
-    let spin: Double
+    let size: CGFloat; let spin: Double
+    private let c = Color(red: 0.70, green: 0.20, blue: 1.0)
     var body: some View {
         Canvas { ctx, sz in
-            let s = sz.width / 140
+            let s  = sz.width / 140
             let cx = sz.width / 2, cy = sz.height / 2
-            let spinRad = CGFloat(spin * .pi / 180)
-            let p = CGFloat(phase)
-            let purple = Color(red: 0.75, green: 0.4, blue: 1.0)
+            let sr = CGFloat(spin * .pi / 180)
 
-            ctx.fill(waveEllipse(cx: cx, cy: cy, w: 80*s, h: 80*s), with: .color(.white.opacity(0.06)))
-
-            for layer in 0..<3 {
-                let lPhase = spinRad + CGFloat(layer) * (2 * .pi / 3)
-                drawRingWave(&ctx, cx: cx, cy: cy,
-                             baseR: (38 + CGFloat(layer)*5)*s,
-                             amplitude: (5+p*2.5)*s, waveCount: 6, phaseOffset: lPhase,
-                             color: layer == 0 ? purple : .white,
-                             opacity: 0.88 - Double(layer)*0.2,
-                             lineWidth: (3.2 - CGFloat(layer)*0.5)*s)
+            // 3 concentric glowing rings at slightly different radii
+            for (r, op): (CGFloat, Double) in [(44, 0.9), (34, 0.55), (24, 0.35)] {
+                var ring = Path()
+                ring.addArc(center: CGPoint(x: cx, y: cy), radius: r*s,
+                            startAngle: .zero, endAngle: .radians(2 * .pi), clockwise: false)
+                glowStroke(&ctx, path: ring, color: c, width: 2.5*s, glow: 0.22, opacity: op)
             }
 
-            ctx.fill(waveEllipse(cx: cx, cy: cy, w: (6+p*2)*s, h: (6+p*2)*s),
-                     with: .color(purple.opacity(0.95)))
+            // Dashes on outer ring rotating
+            let outerR: CGFloat = 44 * s
+            for i in 0..<20 {
+                let a = CGFloat(i) * (2 * .pi / 20) + sr
+                let brightness = 0.5 + sin(a * 3) * 0.4
+                glowDot(&ctx, x: cx + cos(a)*outerR, y: cy + sin(a)*outerR,
+                        r: 2*s, color: c.opacity(max(0.2, brightness)))
+            }
+            // Center dot
+            glowDot(&ctx, x: cx, y: cy, r: 4*s, color: c.opacity(0.9))
         }
     }
 }
 
-// MARK: - 5. 音楽探検家: 外側へ拡散するノイズ波
+// MARK: - 5. 音楽探検家  ── 多色パーティクルが拡散
 
 private struct ExplorerWave: View {
-    let size: CGFloat
-    let phase: Double
+    let size: CGFloat; let phase: Double
     var body: some View {
         Canvas { ctx, sz in
-            let s = sz.width / 140
+            let s  = sz.width / 140
             let cx = sz.width / 2, cy = sz.height / 2
-            let p = CGFloat(phase)
-            let green = Color(red: 0.2, green: 0.9, blue: 0.6)
-            let cyan  = Color(red: 0.3, green: 0.85, blue: 1.0)
+            let p  = CGFloat(phase)
 
-            let segs: [(a: CGFloat, br: CGFloat, len: CGFloat, freq: CGFloat, col: Color)] = [
-                (0,        18, 28, 1.0, .white),
-                (.pi/4,    16, 24, 1.5, green),
-                (.pi/2,    20, 28, 0.8, cyan),
-                (.pi*3/4,  15, 22, 1.2, .white),
-                (.pi,      22, 28, 0.9, green),
-                (-.pi/4,   18, 24, 1.1, cyan),
-                (-.pi/2,   17, 22, 1.4, .white),
-                (-.pi*3/4, 20, 26, 0.7, green),
+            // Fixed seed particle layout — 36 particles in 3 rings expanding with phase
+            let colors: [Color] = [
+                Color(red: 0.2, green: 0.9, blue: 0.5),
+                Color(red: 0.6, green: 0.3, blue: 1.0),
+                Color(red: 0.3, green: 0.85, blue: 1.0),
+                Color(red: 1.0, green: 0.6, blue: 0.2),
             ]
-            for seg in segs {
-                let expandR = seg.br*s + p*16*s
-                let sx = cx + cos(seg.a)*expandR,       sy = cy + sin(seg.a)*expandR
-                let ex = cx + cos(seg.a)*(expandR+seg.len*s), ey = cy + sin(seg.a)*(expandR+seg.len*s)
-                let pa = seg.a + .pi/2
-                let amp = (4 + p*3)*s
-                var path = Path()
-                for i in 0...20 {
-                    let t = CGFloat(i)/20
-                    let x = sx + (ex-sx)*t, y = sy + (ey-sy)*t
-                    let w = amp * sin(2 * .pi * seg.freq * t + p * 2 * .pi)
-                    let pt = CGPoint(x: x + cos(pa)*w, y: y + sin(pa)*w)
-                    if i == 0 { path.move(to: pt) } else { path.addLine(to: pt) }
+            let configs: [(n: Int, baseR: CGFloat, rOff: CGFloat, rDot: CGFloat)] = [
+                (8,  14, 6,  2.8),
+                (12, 28, 10, 2.2),
+                (16, 42, 14, 1.8),
+            ]
+            for (ri, cfg) in configs.enumerated() {
+                for i in 0..<cfg.n {
+                    let a = CGFloat(i) * (2 * .pi / CGFloat(cfg.n)) + p * 0.4 * CGFloat(ri + 1)
+                    let r = (cfg.baseR + p * cfg.rOff) * s
+                    let col = colors[(i + ri * 3) % colors.count]
+                    let brightness = 0.5 + CGFloat(sin(p * 2 * .pi + CGFloat(i) * 0.5)) * 0.45
+                    glowDot(&ctx, x: cx + cos(a)*r, y: cy + sin(a)*r,
+                            r: cfg.rDot*s, color: col.opacity(max(0.15, brightness)))
                 }
-                ctx.stroke(path, with: .color(seg.col.opacity(max(0.25, 0.82 - p*0.45))),
-                           lineWidth: 1.8*s)
             }
-            ctx.fill(waveEllipse(cx: cx, cy: cy, w: (8+p*2)*s, h: (8+p*2)*s),
-                     with: .color(.white.opacity(0.75 - p*0.2)))
+            glowDot(&ctx, x: cx, y: cy, r: (3+p)*s, color: .white.opacity(0.8))
         }
     }
 }
 
-// MARK: - 6. 固定リスナー: 揺れのない1本の安定波形
+// MARK: - 6. 固定リスナー  ── 安定した1本の波形
 
 private struct LoyalListenerWave: View {
-    let size: CGFloat
-    let phase: Double
+    let size: CGFloat; let phase: Double
+    private let c = Color(red: 0.30, green: 0.60, blue: 1.0)
     var body: some View {
         Canvas { ctx, sz in
-            let s = sz.width / 140
+            let s  = sz.width / 140
             let cx = sz.width / 2, cy = sz.height / 2
-            let blue = Color(red: 0.4, green: 0.7, blue: 1.0)
 
-            ctx.stroke(waveEllipse(cx: cx, cy: cy, w: 82*s, h: 82*s),
-                       with: .color(blue.opacity(0.22)), lineWidth: 1.5*s)
-            ctx.stroke(waveEllipse(cx: cx, cy: cy, w: 62*s, h: 62*s),
-                       with: .color(blue.opacity(0.16)), lineWidth: 1.2*s)
-            ctx.fill(waveEllipse(cx: cx, cy: cy, w: 72*s, h: 72*s),
-                     with: .color(.white.opacity(0.04)))
+            // Subtle ring glow
+            var ring = Path()
+            ring.addArc(center: CGPoint(x: cx, y: cy), radius: 42*s,
+                        startAngle: .zero, endAngle: .radians(2 * .pi), clockwise: false)
+            ctx.stroke(ring, with: .color(c.opacity(0.18)), lineWidth: 1.5*s)
 
-            let amp = (3 + phase*1.5)*s
-            drawHorizWave(&ctx, x1: cx-52*s, x2: cx+52*s, cy: cy,
-                          amplitude: amp, frequency: 1.5,
-                          phaseOffset: CGFloat(phase * .pi * 0.6),
-                          color: .white, opacity: 0.90, lineWidth: 3.2*s)
-            drawHorizWave(&ctx, x1: cx-52*s, x2: cx+52*s, cy: cy+14*s,
-                          amplitude: amp*0.45, frequency: 1.5,
-                          phaseOffset: CGFloat(phase * .pi * 0.6),
-                          color: .white, opacity: 0.28, lineWidth: 1.6*s)
+            // Single stable sine wave — very small amplitude, slow drift
+            let amp = (5 + phase * 2) * s
+            let path = makeHorizWavePath(x1: cx-50*s, x2: cx+50*s, cy: cy,
+                                         amplitude: amp, freq: 1.5,
+                                         phaseOff: CGFloat(phase * .pi * 0.6))
+            glowStroke(&ctx, path: path, color: c, width: 2.8*s, glow: 0.25, opacity: 1.0)
         }
     }
 }
 
-// MARK: - 7. 成長型リスナー: 積層して成長する波形
+// MARK: - 7. 成長型リスナー  ── 下から上へ成長する水平バー群
 
 private struct GrowingListenerWave: View {
-    let size: CGFloat
-    let phase: Double
+    let size: CGFloat; let phase: Double
+    private let c = Color(red: 0.20, green: 0.90, blue: 0.70)
     var body: some View {
         Canvas { ctx, sz in
-            let s = sz.width / 140
+            let s  = sz.width / 140
             let cx = sz.width / 2, cy = sz.height / 2
-            let p = CGFloat(phase)
+            let p  = CGFloat(phase)
 
-            ctx.fill(waveEllipse(cx: cx, cy: cy, w: 80*s, h: 80*s), with: .color(.white.opacity(0.05)))
-
-            let layers: [(yOff: CGFloat, ampBase: CGFloat, op: Double, lw: CGFloat)] = [
-                (26,  6, 0.28, 1.4),
-                (13,  9, 0.43, 1.9),
-                (0,  12, 0.60, 2.4),
-                (-13, 15, 0.75, 2.9),
-                (-26, 18, 0.90, 3.4),
+            // 6 horizontal bars: bottom short/dim → top long/bright
+            let bars: [(yOff: CGFloat, halfW: CGFloat, op: Double)] = [
+                (28, 12, 0.22),
+                (18, 20, 0.35),
+                (8,  30, 0.50),
+                (-2, 38, 0.65),
+                (-12,44, 0.80),
+                (-22,48, 0.95),
             ]
-            for (i, layer) in layers.enumerated() {
-                let amp = layer.ampBase * s * (0.7 + p*0.3)
-                let pOff = p * .pi * 2 + CGFloat(i) * 0.45
-                drawHorizWave(&ctx, x1: cx-48*s, x2: cx+48*s, cy: cy+layer.yOff*s,
-                              amplitude: amp, frequency: 1.5, phaseOffset: pOff,
-                              color: .white, opacity: layer.op + phase*0.07,
-                              lineWidth: layer.lw*s)
+            for bar in bars {
+                let hw = bar.halfW * s * (0.75 + p * 0.25)
+                var path = Path()
+                path.move(to: CGPoint(x: cx - hw, y: cy + bar.yOff*s))
+                path.addLine(to: CGPoint(x: cx + hw, y: cy + bar.yOff*s))
+                glowStroke(&ctx, path: path, color: c, width: 2.5*s,
+                           glow: 0.20, opacity: bar.op + phase * 0.05)
             }
-
-            var arrow = Path()
-            arrow.move(to: CGPoint(x: cx+46*s, y: cy+32*s))
-            arrow.addLine(to: CGPoint(x: cx+46*s, y: cy-32*s))
-            ctx.stroke(arrow, with: .color(.white.opacity(0.28)), lineWidth: 1.4*s)
-            var head = Path()
-            head.move(to: CGPoint(x: cx+46*s, y: cy-32*s))
-            head.addLine(to: CGPoint(x: cx+40*s, y: cy-22*s))
-            head.addLine(to: CGPoint(x: cx+52*s, y: cy-22*s))
-            head.closeSubpath()
-            ctx.fill(head, with: .color(.white.opacity(0.35 + p*0.2)))
         }
     }
 }
 
-// MARK: - 8. 懐古リスナー: 過去波形の残像レイヤー
+// MARK: - 8. 懐古リスナー  ── 過去波形の残像が重なる
 
 private struct NostalgicWave: View {
-    let size: CGFloat
-    let phase: Double
+    let size: CGFloat; let phase: Double
+    private let c = Color(red: 0.70, green: 0.40, blue: 0.90)
+    private let w = Color(red: 0.92, green: 0.80, blue: 0.62) // sepia
     var body: some View {
         Canvas { ctx, sz in
-            let s = sz.width / 140
+            let s  = sz.width / 140
             let cx = sz.width / 2, cy = sz.height / 2
-            let p = CGFloat(phase)
-            let sepia = Color(red: 0.92, green: 0.80, blue: 0.62)
+            let p  = CGFloat(phase)
 
-            let echoes: [(yOff: CGFloat, phAdd: CGFloat, op: Double, lw: CGFloat, isSepia: Bool)] = [
-                (18, 2.2, 0.18, 1.4, true),
-                (10, 1.4, 0.32, 1.8, true),
-                (4,  0.7, 0.52, 2.2, false),
-                (0,  0.0, 0.82, 2.8, false),
+            // 4 echoes: most-faded (oldest) → bright (newest)
+            let echoes: [(yOff: CGFloat, phAdd: CGFloat, op: Double, useSepia: Bool)] = [
+                (16, 2.0, 0.16, true),
+                ( 9, 1.3, 0.32, true),
+                ( 3, 0.6, 0.54, false),
+                ( 0, 0.0, 0.85, false),
             ]
             for echo in echoes {
-                let yPos = cy - echo.yOff*s - p*echo.yOff*0.3*s
+                let yPos = cy - echo.yOff*s - p * echo.yOff * 0.35 * s
                 let pOff = p * .pi * 2 - echo.phAdd
-                drawHorizWave(&ctx, x1: cx-50*s, x2: cx+50*s, cy: yPos,
-                              amplitude: (10+p*2)*s, frequency: 2, phaseOffset: pOff,
-                              color: echo.isSepia ? sepia : .white,
-                              opacity: echo.op, lineWidth: echo.lw*s)
+                let path = makeHorizWavePath(x1: cx-50*s, x2: cx+50*s, cy: yPos,
+                                             amplitude: (9+p*2)*s, freq: 2, phaseOff: pOff)
+                let col: Color = echo.useSepia ? w : c
+                glowStroke(&ctx, path: path, color: col, width: (echo.op > 0.5 ? 2.5 : 1.6)*s,
+                           glow: 0.15, opacity: echo.op)
             }
-            ctx.fill(waveEllipse(cx: cx, cy: cy, w: 72*s, h: 18*s),
-                     with: .color(.white.opacity(0.04)))
         }
     }
 }
 
-// MARK: - 9. ジャンル偏愛家: 特定帯域に密集した波形
+// MARK: - 9. ジャンル偏愛家  ── 狭帯域に密集した縦スパイク群
 
 private struct GenreAddictWave: View {
-    let size: CGFloat
-    let phase: Double
+    let size: CGFloat; let phase: Double
+    private let c = Color(red: 1.0, green: 0.32, blue: 0.10)
     var body: some View {
         Canvas { ctx, sz in
-            let s = sz.width / 140
+            let s  = sz.width / 140
             let cx = sz.width / 2, cy = sz.height / 2
-            let p = CGFloat(phase)
-            let red = Color(red: 1.0, green: 0.3, blue: 0.25)
+            let p  = CGFloat(phase)
 
-            ctx.fill(Path(roundedRect: CGRect(x: cx-52*s, y: cy-22*s, width: 104*s, height: 44*s),
-                          cornerRadius: 8*s),
-                     with: .color(red.opacity(0.14)))
-
-            for i in 0..<9 {
-                let t = CGFloat(i) / 8
-                let yOff = (t - 0.5) * 36 * s
-                let cf = max(0.0, 1 - abs(t - 0.5) * 1.6)
-                let pOff = p * .pi * 2 + CGFloat(i) * 0.42
-                drawHorizWave(&ctx, x1: cx-50*s, x2: cx+50*s, cy: cy+yOff,
-                              amplitude: (2 + cf*3.5)*s, frequency: 4.5, phaseOffset: pOff,
-                              color: i % 3 == 0 ? red : .white,
-                              opacity: min(1, 0.4 + cf*0.55),
-                              lineWidth: (1.1 + cf*0.9)*s)
+            // 12 vertical bars varying heights, narrow column
+            let nBars = 12
+            let totalW: CGFloat = 56 * s
+            for i in 0..<nBars {
+                let t = CGFloat(i) / CGFloat(nBars - 1)
+                let x = cx - totalW/2 + t * totalW
+                // Height envelope: taller in center
+                let envelope = 1.0 - pow(abs(t - 0.5) * 1.8, 1.4)
+                let h = max(4, (14 + envelope * 36 + CGFloat(sin(p * .pi * 2 + t * 8)) * 10)) * s
+                var bar = Path()
+                bar.move(to: CGPoint(x: x, y: cy + 2*s))
+                bar.addLine(to: CGPoint(x: x, y: cy + 2*s - h))
+                let op = 0.45 + envelope * 0.55
+                glowStroke(&ctx, path: bar, color: c, width: 3*s, glow: 0.20, opacity: min(1, op))
             }
+            // Bottom baseline
+            var base = Path()
+            base.move(to: CGPoint(x: cx - totalW/2 - 4*s, y: cy + 2*s))
+            base.addLine(to: CGPoint(x: cx + totalW/2 + 4*s, y: cy + 2*s))
+            ctx.stroke(base, with: .color(c.opacity(0.40)), lineWidth: 1.2*s)
         }
     }
 }
 
-// MARK: - 10. バランス型: 完全均一波形、多色低彩度
+// MARK: - 10. バランス型  ── 5色の同心円
 
 private struct BalancedWave: View {
-    let size: CGFloat
-    let phase: Double
+    let size: CGFloat; let phase: Double
     var body: some View {
         Canvas { ctx, sz in
-            let s = sz.width / 140
+            let s  = sz.width / 140
             let cx = sz.width / 2, cy = sz.height / 2
-            let p = CGFloat(phase)
-            let lavender = Color(red: 0.78, green: 0.62, blue: 0.92)
-            let teal     = Color(red: 0.58, green: 0.84, blue: 0.80)
+            let p  = CGFloat(phase)
 
-            ctx.stroke(waveEllipse(cx: cx, cy: cy, w: 84*s, h: 84*s),
-                       with: .color(lavender.opacity(0.22)), lineWidth: 1.4*s)
-
-            let pOff = p * .pi * 2
-            drawHorizWave(&ctx, x1: cx-52*s, x2: cx+52*s, cy: cy-16*s,
-                          amplitude: (9+p*2)*s, frequency: 2, phaseOffset: pOff,
-                          color: lavender, opacity: 0.82, lineWidth: 2.4*s)
-            drawHorizWave(&ctx, x1: cx-52*s, x2: cx+52*s, cy: cy,
-                          amplitude: (10+p*2)*s, frequency: 2, phaseOffset: pOff+0.6,
-                          color: .white, opacity: 0.88, lineWidth: 3.0*s)
-            drawHorizWave(&ctx, x1: cx-52*s, x2: cx+52*s, cy: cy+16*s,
-                          amplitude: (9+p*2)*s, frequency: 2, phaseOffset: pOff+1.2,
-                          color: teal, opacity: 0.82, lineWidth: 2.4*s)
-        }
-    }
-}
-
-// MARK: - 11. コレクター(CD): ディスク積層構造、同心円環波形
-
-private struct CollectorWave: View {
-    let size: CGFloat
-    let phase: Double
-    let spin: Double
-    var body: some View {
-        Canvas { ctx, sz in
-            let s = sz.width / 140
-            let cx = sz.width / 2, cy = sz.height / 2
-            let p = CGFloat(phase)
-            let spinRad = CGFloat(spin * .pi / 180)
-            let gold   = Color(red: 1.0, green: 0.88, blue: 0.55)
-            let silver = Color(red: 0.85, green: 0.88, blue: 0.95)
-
-            let rings: [(r: CGFloat, amp: CGFloat, cnt: Int, col: Color, op: Double, lw: CGFloat)] = [
-                (47, 1.4, 16, silver, 0.42, 1.5),
-                (38, 2.0, 14, gold,   0.55, 1.8),
-                (30, 2.5, 12, silver, 0.66, 2.1),
-                (22, 2.2, 10, gold,   0.78, 2.4),
-                (14, 1.8,  8, silver, 0.88, 2.8),
+            // 5 concentric rings, rainbow colors
+            let rings: [(r: CGFloat, col: Color)] = [
+                (44, Color(red: 1.0, green: 0.40, blue: 0.40)),
+                (34, Color(red: 1.0, green: 0.80, blue: 0.25)),
+                (25, Color(red: 0.40, green: 0.90, blue: 0.45)),
+                (17, Color(red: 0.35, green: 0.70, blue: 1.00)),
+                (9,  Color(red: 0.80, green: 0.40, blue: 1.00)),
             ]
             for ring in rings {
-                drawRingWave(&ctx, cx: cx, cy: cy, baseR: ring.r*s,
-                             amplitude: ring.amp*s*(1+p*0.5), waveCount: ring.cnt,
-                             phaseOffset: spinRad*0.3,
-                             color: ring.col, opacity: ring.op + p*0.08,
-                             lineWidth: ring.lw*s)
+                let r = ring.r * s * (0.95 + p * 0.06)
+                var path = Path()
+                path.addArc(center: CGPoint(x: cx, y: cy), radius: r,
+                            startAngle: .zero, endAngle: .radians(2 * .pi), clockwise: false)
+                glowStroke(&ctx, path: path, color: ring.col, width: 2.2*s, glow: 0.22, opacity: 0.88)
             }
-            ctx.fill(waveEllipse(cx: cx, cy: cy, w: (8+p*2)*s, h: (8+p*2)*s),
-                     with: .color(.white.opacity(0.94)))
-            ctx.fill(waveEllipse(cx: cx, cy: cy, w: 3*s, h: 3*s),
-                     with: .color(gold.opacity(0.9)))
+            glowDot(&ctx, x: cx, y: cy, r: (3+p)*s, color: .white.opacity(0.95))
         }
     }
 }
 
-// MARK: - 12. サブスク派: 左から右へ流動するストリーム波形
+// MARK: - 11. コレクター(CD派)  ── 同心環波形のディスク構造
 
-private struct StreamingFanWave: View {
-    let size: CGFloat
-    let phase: Double
+private struct CollectorWave: View {
+    let size: CGFloat; let phase: Double; let spin: Double
+    private let c = Color(red: 1.0, green: 0.78, blue: 0.30)
     var body: some View {
         Canvas { ctx, sz in
-            let s = sz.width / 140
+            let s  = sz.width / 140
             let cx = sz.width / 2, cy = sz.height / 2
-            let p = CGFloat(phase)
-            let aqua = Color(red: 0.4, green: 0.88, blue: 1.0)
+            let p  = CGFloat(phase)
+            let sr = CGFloat(spin * .pi / 180)
 
-            ctx.fill(waveEllipse(cx: cx, cy: cy, w: 80*s, h: 80*s),
-                     with: .color(.white.opacity(0.05)))
+            let rings: [(r: CGFloat, cnt: Int, amp: CGFloat, op: Double, lw: CGFloat)] = [
+                (47, 20, 1.5, 0.40, 1.4),
+                (38, 16, 2.0, 0.55, 1.8),
+                (30, 12, 2.5, 0.68, 2.1),
+                (22, 10, 2.2, 0.80, 2.4),
+                (14,  8, 1.8, 0.90, 2.8),
+            ]
+            for ring in rings {
+                let path = makeRingWavePath(cx: cx, cy: cy, baseR: ring.r*s,
+                                            amplitude: ring.amp*s*(1+p*0.4),
+                                            waveCount: ring.cnt, phaseOff: sr*0.25)
+                glowStroke(&ctx, path: path, color: c, width: ring.lw*s,
+                           glow: 0.18, opacity: ring.op + p*0.08)
+            }
+            glowDot(&ctx, x: cx, y: cy, r: (5+p*2)*s, color: .white.opacity(0.95))
+            glowDot(&ctx, x: cx, y: cy, r: 2*s, color: c.opacity(0.9))
+        }
+    }
+}
 
-            let streams: [(yOff: CGFloat, amp: CGFloat, op: Double, lw: CGFloat, col: Color)] = [
-                (-18, 7,  0.45, 1.8, aqua),
-                (-6,  11, 0.70, 2.5, .white),
-                (6,   11, 0.70, 2.5, .white),
-                (18,  7,  0.45, 1.8, aqua),
+// MARK: - 12. サブスク派  ── 左から右へ流れる4本のストリーム
+
+private struct StreamingFanWave: View {
+    let size: CGFloat; let phase: Double
+    private let c = Color(red: 0.30, green: 0.85, blue: 1.0)
+    var body: some View {
+        Canvas { ctx, sz in
+            let s  = sz.width / 140
+            let cx = sz.width / 2, cy = sz.height / 2
+            let p  = CGFloat(phase)
+            let flowOff = p * 2 * .pi * -1  // rightward flow
+
+            let streams: [(yOff: CGFloat, amp: CGFloat, op: Double, lw: CGFloat)] = [
+                (-20, 5,  0.40, 1.6),
+                (-7,  9,  0.68, 2.4),
+                (7,   9,  0.68, 2.4),
+                (20,  5,  0.40, 1.6),
             ]
             for stream in streams {
-                drawHorizWave(&ctx, x1: cx-52*s, x2: cx+52*s, cy: cy+stream.yOff*s,
-                              amplitude: stream.amp*s, frequency: 1.5,
-                              phaseOffset: p * 2 * .pi * -1,
-                              color: stream.col, opacity: stream.op,
-                              lineWidth: stream.lw*s)
+                let path = makeHorizWavePath(x1: cx-52*s, x2: cx+52*s,
+                                             cy: cy + stream.yOff*s,
+                                             amplitude: stream.amp*s, freq: 1.5,
+                                             phaseOff: flowOff)
+                glowStroke(&ctx, path: path, color: c, width: stream.lw*s,
+                           glow: 0.20, opacity: stream.op)
             }
-
+            // Leading edge glow dots
             let dotX = cx - 52*s + p * 104*s
-            for dy: CGFloat in [-20, -8, 8, 20] {
-                ctx.fill(waveEllipse(cx: dotX, cy: cy+dy*s, w: 4*s, h: 4*s),
-                         with: .color(.white.opacity(max(0, 0.6 - abs(Double(dy))/40.0*0.5))))
+            for dy: CGFloat in [-20, -7, 7, 20] {
+                glowDot(&ctx, x: dotX, y: cy+dy*s, r: 3*s,
+                        color: .white.opacity(max(0, 0.7 - abs(Double(dy))/28.0 * 0.4)))
             }
         }
     }
 }
 
-// MARK: - Drawing Helpers
+// MARK: - Path Factories
 
-private func drawHorizWave(
-    _ ctx: inout GraphicsContext,
-    x1: CGFloat, x2: CGFloat, cy: CGFloat,
-    amplitude: CGFloat, frequency: CGFloat, phaseOffset: CGFloat,
-    color: Color, opacity: Double, lineWidth: CGFloat,
-    steps: Int = 80
-) {
+private func makeHorizWavePath(x1: CGFloat, x2: CGFloat, cy: CGFloat,
+                                amplitude: CGFloat, freq: CGFloat, phaseOff: CGFloat,
+                                steps: Int = 80) -> Path {
     var path = Path()
     for i in 0...steps {
         let t = CGFloat(i) / CGFloat(steps)
-        let x = x1 + (x2 - x1) * t
-        let y = cy + amplitude * sin(2 * .pi * frequency * t + phaseOffset)
-        if i == 0 { path.move(to: CGPoint(x: x, y: y)) } else { path.addLine(to: CGPoint(x: x, y: y)) }
+        let pt = CGPoint(x: x1 + (x2 - x1)*t,
+                         y: cy + amplitude * sin(2 * .pi * freq * t + phaseOff))
+        if i == 0 { path.move(to: pt) } else { path.addLine(to: pt) }
     }
-    ctx.stroke(path, with: .color(color.opacity(opacity)), lineWidth: lineWidth)
+    return path
 }
 
-private func drawRingWave(
-    _ ctx: inout GraphicsContext,
-    cx: CGFloat, cy: CGFloat,
-    baseR: CGFloat, amplitude: CGFloat, waveCount: Int, phaseOffset: CGFloat,
-    color: Color, opacity: Double, lineWidth: CGFloat,
-    steps: Int = 120
-) {
+private func makeRingWavePath(cx: CGFloat, cy: CGFloat, baseR: CGFloat,
+                               amplitude: CGFloat, waveCount: Int, phaseOff: CGFloat,
+                               steps: Int = 120) -> Path {
     var path = Path()
     for i in 0...steps {
-        let angle = CGFloat(i) / CGFloat(steps) * 2 * .pi
-        let r = baseR + amplitude * sin(CGFloat(waveCount) * angle + phaseOffset)
-        let pt = CGPoint(x: cx + cos(angle) * r, y: cy + sin(angle) * r)
+        let a = CGFloat(i) / CGFloat(steps) * 2 * .pi
+        let r = baseR + amplitude * sin(CGFloat(waveCount) * a + phaseOff)
+        let pt = CGPoint(x: cx + cos(a)*r, y: cy + sin(a)*r)
         if i == 0 { path.move(to: pt) } else { path.addLine(to: pt) }
     }
     path.closeSubpath()
-    ctx.stroke(path, with: .color(color.opacity(opacity)), lineWidth: lineWidth)
+    return path
 }
 
-private func drawConvergingWave(
-    _ ctx: inout GraphicsContext,
-    cx: CGFloat, cy: CGFloat,
-    length: CGFloat, angle: CGFloat,
-    amplitude: CGFloat, frequency: CGFloat, phaseOffset: CGFloat,
-    color: Color, opacity: Double, lineWidth: CGFloat,
-    steps: Int = 80
-) {
+private func makeConvergingPath(cx: CGFloat, cy: CGFloat, length: CGFloat, angle: CGFloat,
+                                 amplitude: CGFloat, freq: CGFloat, phaseOff: CGFloat,
+                                 steps: Int = 80) -> Path {
     var path = Path()
     let px = -sin(angle), py = cos(angle)
     for i in 0...steps {
         let t = CGFloat(i) / CGFloat(steps)
         let dist = (t - 0.5) * length
-        let baseX = cx + cos(angle) * dist, baseY = cy + sin(angle) * dist
-        let ampScale = abs(t - 0.5) * 2
-        let wave = amplitude * ampScale * sin(2 * .pi * frequency * t + phaseOffset)
-        let pt = CGPoint(x: baseX + px * wave, y: baseY + py * wave)
+        let base = CGPoint(x: cx + cos(angle)*dist, y: cy + sin(angle)*dist)
+        let wave = amplitude * abs(t - 0.5) * 2 * sin(2 * .pi * freq * t + phaseOff)
+        let pt = CGPoint(x: base.x + px*wave, y: base.y + py*wave)
         if i == 0 { path.move(to: pt) } else { path.addLine(to: pt) }
     }
-    ctx.stroke(path, with: .color(color.opacity(opacity)), lineWidth: lineWidth)
+    return path
+}
+
+// MARK: - Glow Helpers
+
+private func glowDot(_ ctx: inout GraphicsContext, x: CGFloat, y: CGFloat, r: CGFloat, color: Color) {
+    ctx.fill(waveEllipse(cx: x, cy: y, w: r*5.5, h: r*5.5), with: .color(color.opacity(0.07)))
+    ctx.fill(waveEllipse(cx: x, cy: y, w: r*3.2, h: r*3.2), with: .color(color.opacity(0.22)))
+    ctx.fill(waveEllipse(cx: x, cy: y, w: r*1.7, h: r*1.7), with: .color(color.opacity(0.65)))
+    ctx.fill(waveEllipse(cx: x, cy: y, w: r,     h: r),     with: .color(color.opacity(1.00)))
+}
+
+private func glowStroke(_ ctx: inout GraphicsContext, path: Path, color: Color,
+                         width: CGFloat, glow: Double, opacity: Double) {
+    ctx.stroke(path, with: .color(color.opacity(glow * 0.5)), lineWidth: width * 5.5)
+    ctx.stroke(path, with: .color(color.opacity(glow * 1.2)), lineWidth: width * 3.0)
+    ctx.stroke(path, with: .color(color.opacity(glow * 2.5)), lineWidth: width * 1.6)
+    ctx.stroke(path, with: .color(color.opacity(opacity)),    lineWidth: width)
 }
 
 private func waveEllipse(cx: CGFloat, cy: CGFloat, w: CGFloat, h: CGFloat) -> Path {
@@ -555,14 +530,12 @@ struct PersonalityBadgeView: View {
         } else {
             ZStack {
                 Circle()
-                    .fill(LinearGradient(
-                        colors: personality.gradient,
-                        startPoint: .topLeading, endPoint: .bottomTrailing))
+                    .fill(LinearGradient(colors: personality.gradient,
+                                        startPoint: .topLeading, endPoint: .bottomTrailing))
                     .frame(width: size, height: size)
                     .shadow(color: (personality.gradient.first ?? .purple).opacity(0.4),
                             radius: size * 0.12)
-                Text(personality.emoji)
-                    .font(.system(size: size * 0.38))
+                Text(personality.emoji).font(.system(size: size * 0.38))
             }
         }
     }
@@ -580,20 +553,14 @@ struct PersonalityInlineRow: View {
             PersonalityBadgeView(personality: personality, size: badgeSize)
             VStack(alignment: .leading, spacing: 4) {
                 Text("今期のパーソナリティ")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                Text(personality.title)
-                    .font(.headline.bold())
+                    .font(.caption).foregroundStyle(.secondary)
+                Text(personality.title).font(.headline.bold())
                 Text(personality.description)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .lineLimit(2)
+                    .font(.caption).foregroundStyle(.secondary).lineLimit(2)
                 if !reason.isEmpty {
                     Text(reason)
-                        .font(.caption)
-                        .foregroundStyle(.pink.opacity(0.85))
-                        .lineLimit(3)
-                        .padding(.top, 2)
+                        .font(.caption).foregroundStyle(.pink.opacity(0.85))
+                        .lineLimit(3).padding(.top, 2)
                 }
             }
             Spacer(minLength: 0)
