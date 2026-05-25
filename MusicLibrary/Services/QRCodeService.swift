@@ -34,12 +34,40 @@ enum QRCodeService {
         guard let data = string.data(using: .utf8) else { return nil }
         let filter = CIFilter.qrCodeGenerator()
         filter.message = data
-        filter.correctionLevel = "M"
+        filter.correctionLevel = "H"  // High: 30% error correction to survive icon overlay
         guard let output = filter.outputImage else { return nil }
         let scale = size / output.extent.width
         let scaled = output.transformed(by: CGAffineTransform(scaleX: scale, y: scale))
         guard let cgImage = CIContext().createCGImage(scaled, from: scaled.extent) else { return nil }
-        return UIImage(cgImage: cgImage)
+        let qrImage = UIImage(cgImage: cgImage)
+        return overlayAppIcon(on: qrImage, canvasSize: size)
+    }
+
+    private static func overlayAppIcon(on qrImage: UIImage, canvasSize: CGFloat) -> UIImage {
+        let iconSize = canvasSize * 0.22
+        let iconOrigin = CGPoint(x: (canvasSize - iconSize) / 2, y: (canvasSize - iconSize) / 2)
+        let iconRect = CGRect(origin: iconOrigin, size: CGSize(width: iconSize, height: iconSize))
+        let cornerRadius = iconSize * 0.22
+
+        let renderer = UIGraphicsImageRenderer(size: CGSize(width: canvasSize, height: canvasSize))
+        return renderer.image { ctx in
+            qrImage.draw(in: CGRect(origin: .zero, size: CGSize(width: canvasSize, height: canvasSize)))
+
+            // White background circle
+            let padding: CGFloat = 3
+            let bgRect = iconRect.insetBy(dx: -padding, dy: -padding)
+            UIColor.white.setFill()
+            UIBezierPath(ovalIn: bgRect).fill()
+
+            // App icon (AppLogoImage = share card footer icon)
+            if let icon = UIImage(named: "AppLogoImage") {
+                let clipPath = UIBezierPath(roundedRect: iconRect, cornerRadius: cornerRadius)
+                ctx.cgContext.saveGState()
+                clipPath.addClip()
+                icon.draw(in: iconRect)
+                ctx.cgContext.restoreGState()
+            }
+        }
     }
 
     // MARK: - 共有画像へQRを右下合成

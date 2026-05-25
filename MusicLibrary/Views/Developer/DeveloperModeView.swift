@@ -14,9 +14,12 @@ struct DeveloperModeView: View {
     @State private var showTestResetConfirm = false
     @State private var showAllDiffs = false
     @AppStorage("DEV.PreviewPersonality") private var previewPersonalityRaw: String = ""
+    @State private var qrPreviewImage: UIImage?
+    @State private var qrPayloadLength: Int = 0
 
     var body: some View {
         List {
+            qrPreviewSection
             accuracySection
             syncSection
             syncLogSection
@@ -30,7 +33,10 @@ struct DeveloperModeView: View {
         }
         .navigationTitle("開発者モード")
         .navigationBarTitleDisplayMode(.inline)
-        .onAppear { vm.load(tracks: libraryVM.tracks) }
+        .onAppear {
+            vm.load(tracks: libraryVM.tracks)
+            generateQRPreview()
+        }
         // テストデータ注入 確認
         .confirmationDialog(
             "テストデータ注入",
@@ -61,6 +67,57 @@ struct DeveloperModeView: View {
             Button("キャンセル", role: .cancel) {}
         } message: {
             Text("PlayHistoryEntity と PlayCountSnapshotEntity が全削除され、差分カウントがゼロになります。")
+        }
+    }
+
+    // MARK: - 0. QR プレビュー
+
+    private var qrPreviewSection: some View {
+        Section {
+            if let image = qrPreviewImage {
+                VStack(spacing: 12) {
+                    Image(uiImage: image)
+                        .resizable()
+                        .interpolation(.none)
+                        .scaledToFit()
+                        .frame(width: 180, height: 180)
+                        .clipShape(RoundedRectangle(cornerRadius: 8))
+                        .frame(maxWidth: .infinity)
+                    DevRow(label: "ペイロードサイズ", value: "\(qrPayloadLength) bytes")
+                    Text("ダミーデータで生成したQRコード。実際のシェア画像では自分のプロフィールが埋め込まれます。")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                }
+                .padding(.vertical, 8)
+            } else {
+                Text("生成中...")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+        } header: {
+            Text("QR コードプレビュー")
+        }
+    }
+
+    private func generateQRPreview() {
+        let dummy = ListeningProfile(
+            version: 1,
+            displayName: "テストユーザー",
+            personalityType: "ヘビロテ職人",
+            topArtistNames: ["山下達郎", "松任谷由実", "Mr.Children", "宇多田ヒカル", "サザンオールスターズ"],
+            topGenres: [
+                ProfileGenre(name: "J-Pop", ratio: 0.55),
+                ProfileGenre(name: "Rock", ratio: 0.25),
+                ProfileGenre(name: "Soul", ratio: 0.12),
+                ProfileGenre(name: "Jazz", ratio: 0.08)
+            ],
+            cdRatio: 0.72,
+            totalPlayCount: 1234,
+            generatedAt: Date()
+        )
+        if let payload = QRCodeService.encode(dummy) {
+            qrPayloadLength = payload.utf8.count
+            qrPreviewImage = QRCodeService.generateQRImage(from: payload, size: 300)
         }
     }
 

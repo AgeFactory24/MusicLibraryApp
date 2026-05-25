@@ -7,6 +7,7 @@ import SwiftUI
 import VisionKit
 import Vision
 import AVFoundation
+import PhotosUI
 
 // MARK: - エントリービュー（More画面から起動）
 
@@ -21,6 +22,8 @@ struct QRCompatibilityView: View {
     @State private var showScanner = false
     @State private var scanError: String?
     @State private var compatibilityResult: CompatibilityResult?
+    @State private var photoItem: PhotosPickerItem?
+    @State private var isProcessingPhoto = false
 
     var body: some View {
         ScrollView {
@@ -54,6 +57,27 @@ struct QRCompatibilityView: View {
                 handleScanned(payload: payload)
             }
         }
+        .onChange(of: photoItem) { _, newItem in
+            guard let newItem else { return }
+            processPhotoForQR(newItem)
+        }
+        .overlay {
+            if isProcessingPhoto {
+                ZStack {
+                    Color.black.opacity(0.35).ignoresSafeArea()
+                    VStack(spacing: 12) {
+                        ProgressView()
+                            .tint(.white)
+                            .scaleEffect(1.4)
+                        Text("QRを検出中...")
+                            .font(.subheadline.bold())
+                            .foregroundStyle(.white)
+                    }
+                    .padding(28)
+                    .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 16))
+                }
+            }
+        }
         .alert("スキャンエラー", isPresented: Binding(
             get: { scanError != nil },
             set: { if !$0 { scanError = nil } }
@@ -79,16 +103,28 @@ struct QRCompatibilityView: View {
                     .multilineTextAlignment(.center)
             }
 
-            Button {
-                requestCameraAndScan()
-            } label: {
-                Label("QRコードをスキャン", systemImage: "camera.fill")
-                    .font(.headline)
-                    .frame(maxWidth: .infinity)
-                    .padding()
-                    .background(.pink)
-                    .foregroundStyle(.white)
-                    .clipShape(RoundedRectangle(cornerRadius: 14))
+            VStack(spacing: 12) {
+                Button {
+                    requestCameraAndScan()
+                } label: {
+                    Label("QRコードをスキャン", systemImage: "camera.fill")
+                        .font(.headline)
+                        .frame(maxWidth: .infinity)
+                        .padding()
+                        .background(.pink)
+                        .foregroundStyle(.white)
+                        .clipShape(RoundedRectangle(cornerRadius: 14))
+                }
+
+                PhotosPicker(selection: $photoItem, matching: .images) {
+                    Label("アルバムから選択", systemImage: "photo.on.rectangle")
+                        .font(.headline)
+                        .frame(maxWidth: .infinity)
+                        .padding()
+                        .background(Color(.secondarySystemBackground))
+                        .foregroundStyle(.pink)
+                        .clipShape(RoundedRectangle(cornerRadius: 14))
+                }
             }
             .padding(.horizontal, 32)
 
@@ -149,6 +185,39 @@ struct QRCompatibilityView: View {
         }
     }
 
+    private func processPhotoForQR(_ item: PhotosPickerItem) {
+        isProcessingPhoto = true
+        photoItem = nil
+        Task {
+            guard let data = try? await item.loadTransferable(type: Data.self),
+                  let image = UIImage(data: data) else {
+                scanError = "画像を読み込めませんでした"
+                isProcessingPhoto = false
+                return
+            }
+            let payload = await Task.detached(priority: .userInitiated) {
+                Self.detectQRCode(in: image)
+            }.value
+            isProcessingPhoto = false
+            if let payload {
+                handleScanned(payload: payload)
+            } else {
+                scanError = "QRコードが見つかりませんでした。シェア画像の右下のQRが写っているか確認してください"
+            }
+        }
+    }
+
+    static func detectQRCode(in image: UIImage) -> String? {
+        guard let cgImage = image.cgImage else { return nil }
+        let request = VNDetectBarcodesRequest()
+        request.symbologies = [.qr]
+        let handler = VNImageRequestHandler(cgImage: cgImage, options: [:])
+        try? handler.perform([request])
+        return (request.results as? [VNBarcodeObservation])?
+            .first { $0.symbology == .qr }?
+            .payloadStringValue
+    }
+
     private func handleScanned(payload: String) {
         guard let partner = QRCodeService.decode(payload) else {
             scanError = "QRコードを読み取れませんでした。MusicLibraryのシェア画像のQRか確認してください"
@@ -162,22 +231,39 @@ struct QRCompatibilityView: View {
     }
 
     private func buildMyProfile() -> ListeningProfile? {
-        guard let stats = statsVM.stats,
-              let tag = rankingVM.homePersonalityTag else { return nil }
-        let artists = rankingVM.homeTopArtists.prefix(5).map(\.name)
+        let tracks = libraryVM.tracks
+        guard !tracks.isEmpty else { return nil }
+
+        // statsVM / rankingVM が未ロードでも tracks から直接計算してフォールバック
+        let metrics = PersonalityAnalysisEngine.buildMetrics(from: tracks)
+        let totalPlayCount = statsVM.stats?.totalPlayCount ?? metrics.totalPlayCount
+        let cdRatio = statsVM.stats?.localPlayRatio ?? metrics.localPlayRatio
+
+        let personalityType = rankingVM.homePersonalityTag?.personality.rawValue
+            ?? PersonalityAnalysisEngine.evaluate(metrics: metrics, topCount: 1)
+                .first?.personality.rawValue ?? "バランス派"
+
+        let artists: [String] = rankingVM.homeTopArtists.isEmpty
+            ? Array(libraryVM.artists
+                .sorted { $0.totalPlayCount > $1.totalPlayCount }
+                .prefix(5)
+                .map(\.name))
+            : Array(rankingVM.homeTopArtists.prefix(5).map(\.name))
+
         let genres = genreVM.genreData.prefix(5).map { g -> ProfileGenre in
             let ratio = genreVM.totalPlayCount > 0
                 ? Double(g.playCount) / Double(genreVM.totalPlayCount) : 0
             return ProfileGenre(name: g.genre, ratio: ratio)
         }
+
         return ListeningProfile(
             version: 1,
             displayName: profileService.displayName,
-            personalityType: tag.personality.rawValue,
-            topArtistNames: Array(artists),
+            personalityType: personalityType,
+            topArtistNames: artists,
             topGenres: Array(genres),
-            cdRatio: stats.localPlayRatio,
-            totalPlayCount: stats.totalPlayCount,
+            cdRatio: cdRatio,
+            totalPlayCount: totalPlayCount,
             generatedAt: Date()
         )
     }
@@ -188,6 +274,9 @@ struct QRCompatibilityView: View {
 struct QRScannerSheet: View {
     let onScan: (String) -> Void
     @Environment(\.dismiss) var dismiss
+    @State private var photoItem: PhotosPickerItem?
+    @State private var isProcessingPhoto = false
+    @State private var photoError: String?
 
     var body: some View {
         NavigationStack {
@@ -209,6 +298,53 @@ struct QRScannerSheet: View {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("キャンセル") { dismiss() }
                 }
+                ToolbarItem(placement: .topBarTrailing) {
+                    PhotosPicker(selection: $photoItem, matching: .images) {
+                        Label("アルバム", systemImage: "photo.on.rectangle")
+                    }
+                    .disabled(isProcessingPhoto)
+                }
+            }
+            .overlay {
+                if isProcessingPhoto {
+                    ZStack {
+                        Color.black.opacity(0.4).ignoresSafeArea()
+                        ProgressView("QRを検出中...")
+                            .padding(24)
+                            .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 14))
+                    }
+                }
+            }
+            .onChange(of: photoItem) { _, newItem in
+                guard let newItem else { return }
+                isProcessingPhoto = true
+                photoItem = nil
+                Task {
+                    guard let data = try? await newItem.loadTransferable(type: Data.self),
+                          let image = UIImage(data: data) else {
+                        photoError = "画像を読み込めませんでした"
+                        isProcessingPhoto = false
+                        return
+                    }
+                    let payload = await Task.detached(priority: .userInitiated) {
+                        QRCompatibilityView.detectQRCode(in: image)
+                    }.value
+                    isProcessingPhoto = false
+                    if let payload {
+                        dismiss()
+                        onScan(payload)
+                    } else {
+                        photoError = "QRコードが見つかりませんでした"
+                    }
+                }
+            }
+            .alert("読み取りエラー", isPresented: Binding(
+                get: { photoError != nil },
+                set: { if !$0 { photoError = nil } }
+            )) {
+                Button("OK") { photoError = nil }
+            } message: {
+                Text(photoError ?? "")
             }
         }
     }
@@ -263,61 +399,125 @@ struct QRDataScannerView: UIViewControllerRepresentable {
 
 struct CompatibilityResultCard: View {
     let result: CompatibilityResult
+    @EnvironmentObject var libraryVM: LibraryViewModel
+
+    @State private var displayedScore: Int = 0
+    @State private var barProgress: Double = 0
 
     var body: some View {
-        VStack(spacing: 20) {
-            scoreHeader
+        VStack(spacing: 0) {
+            personalityHeader
+                .padding()
+                .onAppear {
+                    startScoreAnimation()
+                    withAnimation(.easeOut(duration: 1.4)) {
+                        barProgress = 1.0
+                    }
+                }
+
             Divider()
+
             detailRows
+                .padding()
+
             if !result.commonArtists.isEmpty {
+                Divider()
                 commonArtistsSection
+                    .padding()
             }
-            reasonSection
+
+            if !result.reason.isEmpty {
+                Divider()
+                Text(result.reason)
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
+                    .padding()
+            }
         }
-        .padding()
         .background(Color(.secondarySystemBackground))
         .clipShape(RoundedRectangle(cornerRadius: 20))
         .padding(.horizontal)
     }
 
-    private var scoreHeader: some View {
-        VStack(spacing: 8) {
-            HStack(spacing: 12) {
-                VStack(spacing: 2) {
-                    Text(result.myProfile.displayName)
-                        .font(.caption.bold())
-                        .foregroundStyle(.secondary)
-                    Image(systemName: "music.note")
-                        .font(.title2)
-                        .foregroundStyle(.pink)
-                }
-                Spacer()
-                VStack(spacing: 4) {
-                    Text(result.level.emoji)
-                        .font(.system(size: 36))
-                    Text("\(result.score)")
-                        .font(.system(size: 52, weight: .heavy, design: .rounded))
-                        .foregroundStyle(result.level.color)
-                    Text("/ 100")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-                Spacer()
-                VStack(spacing: 2) {
-                    Text(result.partnerProfile.displayName)
-                        .font(.caption.bold())
-                        .foregroundStyle(.secondary)
-                    Image(systemName: "music.note")
-                        .font(.title2)
-                        .foregroundStyle(.purple)
-                }
+    // MARK: - ヘッダー（パーソナリティ画像 + スコア）
+
+    private var personalityHeader: some View {
+        VStack(spacing: 14) {
+            HStack(alignment: .center, spacing: 0) {
+                profileColumn(profile: result.myProfile)
+                scoreColumn
+                profileColumn(profile: result.partnerProfile)
             }
 
             Text(result.level.label)
-                .font(.title3.bold())
+                .font(.headline.bold())
                 .foregroundStyle(result.level.color)
         }
     }
+
+    private func profileColumn(profile: ListeningProfile) -> some View {
+        VStack(spacing: 6) {
+            personalityIcon(for: profile.personalityType, size: 72)
+            Text(profile.displayName)
+                .font(.caption.bold())
+                .foregroundStyle(.primary)
+                .lineLimit(1)
+            Text(profile.personalityType)
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+                .lineLimit(1)
+        }
+        .frame(maxWidth: .infinity)
+    }
+
+    private var scoreColumn: some View {
+        VStack(spacing: 2) {
+            Text("\(displayedScore)")
+                .font(.system(size: 48, weight: .heavy, design: .rounded))
+                .foregroundStyle(result.level.color)
+                .monospacedDigit()
+                .contentTransition(.numericText(value: Double(displayedScore)))
+            Text("/ 100")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        }
+        .frame(width: 80)
+    }
+
+    private func startScoreAnimation() {
+        let target = result.score
+        Task { @MainActor in
+            let duration = 1.4
+            let startTime = Date()
+            while true {
+                let elapsed = Date().timeIntervalSince(startTime)
+                let progress = min(elapsed / duration, 1.0)
+                let eased = 1.0 - pow(1.0 - progress, 3.0)
+                displayedScore = Int(Double(target) * eased)
+                if progress >= 1.0 {
+                    displayedScore = target
+                    break
+                }
+                try? await Task.sleep(for: .milliseconds(16))
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func personalityIcon(for type: String, size: CGFloat) -> some View {
+        if let p = Personality(rawValue: type) {
+            PersonalityIconSymbol(personality: p, size: size)
+        } else {
+            Circle()
+                .fill(LinearGradient(
+                    colors: [.pink.opacity(0.3), .purple.opacity(0.3)],
+                    startPoint: .topLeading, endPoint: .bottomTrailing))
+                .frame(width: size, height: size)
+        }
+    }
+
+    // MARK: - スコアバー
 
     private var detailRows: some View {
         VStack(spacing: 10) {
@@ -348,46 +548,39 @@ struct CompatibilityResultCard: View {
                     Capsule().fill(Color(.systemGray5))
                     Capsule()
                         .fill(Color.pink.gradient)
-                        .frame(width: max(geo.size.width * score, 4))
+                        .frame(width: max(geo.size.width * score * barProgress, 0))
                 }
             }
             .frame(height: 5)
         }
     }
 
+    // MARK: - 共通アーティスト
+
+    private func artist(named name: String) -> Artist {
+        libraryVM.artists.first(where: { $0.name == name })
+            ?? Artist(id: name, name: name, artworkURL: nil, tracks: [])
+    }
+
     private var commonArtistsSection: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Label("共通アーティスト", systemImage: "star.fill")
+        VStack(alignment: .leading, spacing: 10) {
+            Text("共通アーティスト")
                 .font(.caption.bold())
                 .foregroundStyle(.secondary)
             ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 8) {
+                HStack(spacing: 16) {
                     ForEach(result.commonArtists, id: \.self) { name in
-                        Text(name)
-                            .font(.caption.bold())
-                            .padding(.horizontal, 12)
-                            .padding(.vertical, 6)
-                            .background(Color.pink.opacity(0.15))
-                            .foregroundStyle(.pink)
-                            .clipShape(Capsule())
+                        VStack(spacing: 6) {
+                            ArtistArtworkView(artist: artist(named: name), size: 52)
+                            Text(name)
+                                .font(.caption2)
+                                .lineLimit(1)
+                                .frame(width: 60)
+                        }
                     }
                 }
+                .padding(.horizontal, 2)
             }
         }
-    }
-
-    private var reasonSection: some View {
-        HStack(alignment: .top, spacing: 10) {
-            Image(systemName: "quote.opening")
-                .font(.title3)
-                .foregroundStyle(.pink.opacity(0.6))
-            Text(result.reason)
-                .font(.subheadline)
-                .foregroundStyle(.primary)
-                .fixedSize(horizontal: false, vertical: true)
-        }
-        .padding()
-        .background(Color.pink.opacity(0.06))
-        .clipShape(RoundedRectangle(cornerRadius: 12))
     }
 }
