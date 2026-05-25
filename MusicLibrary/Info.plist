@@ -6,6 +6,8 @@
 	<array>
 		<string>com.yourcompany.MusicLibrary.refresh</string>
 	</array>
+	<key>NSCameraUsageDescription</key>
+	<string>友達の音楽プロフィールQRコードをスキャンして音楽相性を診断します</string>
 	<key>NSUserNotificationsUsageDescription</key>
 	<string>週次・月次レポートの完成や、久しぶりのお気に入り楽曲をお知らせします</string>
 	<key>UIBackgroundModes</key>

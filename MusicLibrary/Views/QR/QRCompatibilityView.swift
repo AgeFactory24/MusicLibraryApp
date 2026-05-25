@@ -18,7 +18,6 @@ struct QRCompatibilityView: View {
     @State private var showScanner = false
     @State private var scanError: String?
     @State private var compatibilityResult: CompatibilityResult?
-    @State private var cameraPermission: AVAuthorizationStatus = AVCaptureDevice.authorizationStatus(for: .video)
 
     var body: some View {
         ScrollView {
@@ -45,7 +44,7 @@ struct QRCompatibilityView: View {
         }
         .navigationTitle("音楽相性チェック")
         .navigationBarTitleDisplayMode(.inline)
-        .sheet(isPresented: $showScanner) {
+        .fullScreenCover(isPresented: $showScanner) {
             QRScannerSheet { payload in
                 showScanner = false
                 handleScanned(payload: payload)
@@ -222,11 +221,15 @@ struct QRDataScannerView: UIViewControllerRepresentable {
             isHighlightingEnabled: true
         )
         vc.delegate = context.coordinator
+        // startScanning は viewDidAppear 相当のタイミングで実行
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+            try? vc.startScanning()
+        }
         return vc
     }
 
     func updateUIViewController(_ vc: DataScannerViewController, context: Context) {
-        try? vc.startScanning()
+        // startScanning は makeUIViewController で一度だけ呼ぶため、ここでは何もしない
     }
 
     func makeCoordinator() -> Coordinator { Coordinator(onScan: onScan) }
