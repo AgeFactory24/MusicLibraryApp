@@ -70,8 +70,6 @@ private struct SummarySection: View {
                              icon: "clock.fill", color: .orange)
                 StatCardView(title: "アーティスト数", value: "\(stats.uniqueArtistCount)人",
                              icon: "music.mic", color: .purple)
-                StatCardView(title: "CD取り込み曲", value: "\(stats.localAssetCount)曲",
-                             icon: "opticaldisc", color: .blue)
             }
             .padding(.horizontal)
         }
