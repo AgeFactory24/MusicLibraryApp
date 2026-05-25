@@ -31,10 +31,20 @@ struct MonthlyReportView: View {
                     if let report = viewModel.report, report.totalPlayCount > 0 {
                         summaryCard(report: report)
                         PersonalityInlineRow(personality: report.personality, reason: report.personalityReason)
-                        GenreReportSection(
-                            genreData: report.genreData,
-                            totalPlayCount: report.totalPlayCount
-                        )
+                        NavigationLink {
+                            PeriodGenreDetailView(
+                                genreData: report.genreData,
+                                totalPlayCount: report.totalPlayCount,
+                                title: "\(viewModel.selectedYear)年\(viewModel.selectedMonth)月のジャンル"
+                            )
+                        } label: {
+                            GenreReportSection(
+                                genreData: report.genreData,
+                                totalPlayCount: report.totalPlayCount,
+                                showNavigationArrow: true
+                            )
+                        }
+                        .buttonStyle(.plain)
                         dailyChart(report: report)
                         topTracksSection(report: report)
                         topArtistsSection(report: report)

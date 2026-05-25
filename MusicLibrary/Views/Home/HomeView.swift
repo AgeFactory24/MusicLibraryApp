@@ -37,9 +37,6 @@ struct HomeView: View {
 
                     TopArtistsSection(artists: rankingVM.homeTopArtists)
 
-                    GenreAnalysisView()
-                        .environmentObject(libraryVM)
-
                     if let stats = statsVM.stats {
                         HomeSourceBreakdownSection(stats: stats)
                     }
@@ -60,19 +57,37 @@ private struct SummarySection: View {
     let stats: ListeningStats
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            SectionHeader(title: "リスニングサマリ")
-
-            LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
-                StatCardView(title: "総再生回数", value: "\(stats.totalPlayCount)回",
-                             icon: "play.fill", color: .pink)
-                StatCardView(title: "総再生時間", value: stats.totalPlayTimeFormatted,
-                             icon: "clock.fill", color: .orange)
-                StatCardView(title: "アーティスト数", value: "\(stats.uniqueArtistCount)人",
-                             icon: "music.mic", color: .purple)
-            }
-            .padding(.horizontal)
+        HStack(spacing: 0) {
+            SummaryItem(value: "\(stats.totalPlayCount)", label: "再生回数", color: .pink)
+            Divider().frame(height: 36)
+            SummaryItem(value: stats.totalPlayTimeFormatted, label: "総再生時間", color: .orange)
+            Divider().frame(height: 36)
+            SummaryItem(value: "\(stats.uniqueArtistCount)", label: "アーティスト", color: .purple)
         }
+        .padding(.vertical, 14)
+        .background(Color(.secondarySystemBackground))
+        .clipShape(RoundedRectangle(cornerRadius: 16))
+        .padding(.horizontal)
+    }
+}
+
+private struct SummaryItem: View {
+    let value: String
+    let label: String
+    let color: Color
+
+    var body: some View {
+        VStack(spacing: 4) {
+            Text(value)
+                .font(.headline.bold())
+                .foregroundStyle(color)
+                .minimumScaleFactor(0.7)
+                .lineLimit(1)
+            Text(label)
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+        }
+        .frame(maxWidth: .infinity)
     }
 }
 

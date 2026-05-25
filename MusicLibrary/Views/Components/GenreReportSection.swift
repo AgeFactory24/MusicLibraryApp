@@ -10,6 +10,7 @@ struct GenreReportSection: View {
     let genreData: [GenreData]
     let totalPlayCount: Int
     var displayCount: Int = 5
+    var showNavigationArrow: Bool = false
 
     private var topGenres: [GenreData] {
         Array(genreData.prefix(displayCount))
@@ -20,9 +21,17 @@ struct GenreReportSection: View {
 
         return AnyView(
             VStack(alignment: .leading, spacing: 10) {
-                Text("ジャンル分布（TOP\(displayCount)）")
-                    .font(.headline)
-                    .padding(.horizontal)
+                HStack {
+                    Text("ジャンル分布（TOP\(displayCount)）")
+                        .font(.headline)
+                    Spacer()
+                    if showNavigationArrow {
+                        Image(systemName: "chevron.right")
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                .padding(.horizontal)
 
                 VStack(spacing: 8) {
                     ForEach(topGenres) { data in
