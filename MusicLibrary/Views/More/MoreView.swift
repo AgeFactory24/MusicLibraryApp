@@ -45,6 +45,19 @@ struct MoreView: View {
 
                 Section {
                     NavigationLink {
+                        QRCompatibilityView()
+                    } label: {
+                        MoreItemRow(
+                            icon: "qrcode.viewfinder",
+                            color: .pink,
+                            title: "音楽相性チェック",
+                            subtitle: "友達のQRをスキャンして相性を診断"
+                        )
+                    }
+                }
+
+                Section {
+                    NavigationLink {
                         SettingsView()
                     } label: {
                         MoreItemRow(

@@ -13,8 +13,9 @@ struct StoryShareSheet: View {
     @Environment(\.dismiss) var dismiss
     @State private var instagramImage: UIImage?
     @State private var twitterImage: UIImage?
-    @State private var isGenerating = true
+    @State private var isGenerating = false
     @State private var statusMessage: String?
+    @State private var showPrivacyAlert = true
 
     var body: some View {
         NavigationStack {
@@ -59,7 +60,15 @@ struct StoryShareSheet: View {
                     Button("閉じる") { dismiss() }
                 }
             }
-            .task { await generateImages() }
+            .task { /* 画像生成はプライバシー確認後に実行 */ }
+            .alert("プロフィール情報の共有", isPresented: $showPrivacyAlert) {
+                Button("確認して続ける") {
+                    Task { await generateImages() }
+                }
+                Button("キャンセル", role: .cancel) { dismiss() }
+            } message: {
+                Text("シェア画像の右下に音楽プロフィールがQRコードとして埋め込まれます。\n\n含まれる情報：\n・パーソナリティ\n・TOPアーティスト\n・ジャンル傾向\n・音源比率\n\n再生履歴・楽曲履歴は含まれません。")
+            }
         }
     }
 
@@ -127,17 +136,25 @@ struct StoryShareSheet: View {
     private func generateImages() async {
         isGenerating = true
 
+        let renderer = ShareImageRenderer()
+        let profile = data.toListeningProfile(displayName: profileService.displayName)
+        let qrString = QRCodeService.encode(profile)
+        let qrImage: UIImage? = qrString.flatMap { QRCodeService.generateQRImage(from: $0, size: 300) }
+
         let igCard = ShareCardContent(
             data: data,
             displayName: profileService.displayName,
             iconImage: profileService.iconImage,
             isVertical: true
         )
-        let renderer = ShareImageRenderer()
-        instagramImage = renderer.render(
+        var igBase = renderer.render(
             igCard.frame(width: 1080, height: 1920),
             size: CGSize(width: 1080, height: 1920)
         )
+        if let base = igBase, let qr = qrImage {
+            igBase = QRCodeService.compositeQR(onto: base, qrImage: qr)
+        }
+        instagramImage = igBase
 
         let twCard = ShareCardContent(
             data: data,
@@ -145,10 +162,14 @@ struct StoryShareSheet: View {
             iconImage: profileService.iconImage,
             isVertical: false
         )
-        twitterImage = renderer.render(
+        var twBase = renderer.render(
             twCard.frame(width: 1200, height: 630),
             size: CGSize(width: 1200, height: 630)
         )
+        if let base = twBase, let qr = qrImage {
+            twBase = QRCodeService.compositeQR(onto: base, qrImage: qr, marginRatio: 0.025)
+        }
+        twitterImage = twBase
 
         isGenerating = false
         Haptics.play(.success)
