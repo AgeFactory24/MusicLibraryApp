@@ -14,6 +14,9 @@ struct QRCompatibilityView: View {
     @EnvironmentObject var statsVM: StatisticsViewModel
     @EnvironmentObject var rankingVM: RankingViewModel
     @EnvironmentObject var profileService: UserProfileService
+    @EnvironmentObject var libraryVM: LibraryViewModel
+
+    @StateObject private var genreVM = GenreAnalysisViewModel()
 
     @State private var showScanner = false
     @State private var scanError: String?
@@ -43,6 +46,7 @@ struct QRCompatibilityView: View {
             .padding(.vertical, 32)
         }
         .navigationTitle("音楽相性チェック")
+        .onAppear { genreVM.build(from: libraryVM.tracks) }
         .navigationBarTitleDisplayMode(.inline)
         .fullScreenCover(isPresented: $showScanner) {
             QRScannerSheet { payload in
@@ -161,12 +165,17 @@ struct QRCompatibilityView: View {
         guard let stats = statsVM.stats,
               let tag = rankingVM.homePersonalityTag else { return nil }
         let artists = rankingVM.homeTopArtists.prefix(5).map(\.name)
+        let genres = genreVM.genreData.prefix(5).map { g -> ProfileGenre in
+            let ratio = genreVM.totalPlayCount > 0
+                ? Double(g.playCount) / Double(genreVM.totalPlayCount) : 0
+            return ProfileGenre(name: g.genre, ratio: ratio)
+        }
         return ListeningProfile(
             version: 1,
             displayName: profileService.displayName,
             personalityType: tag.personality.rawValue,
             topArtistNames: Array(artists),
-            topGenres: [],
+            topGenres: Array(genres),
             cdRatio: stats.localPlayRatio,
             totalPlayCount: stats.totalPlayCount,
             generatedAt: Date()
