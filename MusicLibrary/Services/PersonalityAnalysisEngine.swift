@@ -581,20 +581,39 @@ struct PersonalityAnalysisEngine {
         libraryTracks: [Track]
     ) -> [GenreData] {
         let genreMap = Dictionary(uniqueKeysWithValues: libraryTracks.map { ($0.id, $0.genre) })
-        var counts: [String: Int] = [:]
+
+        var genreCounts: [String: Int] = [:]
+        var genreArtistCounts: [String: [String: Int]] = [:]
+
         for entry in history {
             let genre = normalizeGenre(genreMap[entry.trackID] ?? "")
-            counts[genre, default: 0] += 1
+            genreCounts[genre, default: 0] += 1
+            genreArtistCounts[genre, default: [:]][entry.artistName, default: 0] += 1
         }
-        return counts
+
+        return genreCounts
             .sorted { $0.value > $1.value }
             .enumerated()
             .map { index, pair in
-                GenreData(
-                    genre: pair.key,
+                let genre = pair.key
+                let topArtists = (genreArtistCounts[genre] ?? [:])
+                    .sorted { $0.value > $1.value }
+                    .prefix(3)
+                    .map { name, count -> Artist in
+                        let dummy = Track(
+                            id: "\(genre)__\(name)", title: "",
+                            artistName: name, albumTitle: "",
+                            playCount: count, duration: 0,
+                            artworkURL: nil, isLocalAsset: false,
+                            lastPlayedDate: nil, genre: genre, dateAdded: nil
+                        )
+                        return Artist(id: name, name: name, artworkURL: nil, tracks: [dummy])
+                    }
+                return GenreData(
+                    genre: genre,
                     playCount: pair.value,
                     trackCount: 0,
-                    topArtists: [],
+                    topArtists: Array(topArtists),
                     color: genrePalette[index % genrePalette.count]
                 )
             }

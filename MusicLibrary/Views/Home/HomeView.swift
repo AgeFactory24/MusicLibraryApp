@@ -24,6 +24,7 @@ struct HomeView: View {
 
                     if let stats = statsVM.stats {
                         SummarySection(stats: stats)
+                        HomeSourceBreakdownSection(stats: stats)
                     }
 
                     PeriodPickerSection(period: $rankingVM.homeRankingPeriod)
@@ -36,10 +37,6 @@ struct HomeView: View {
                     TopTracksSection(tracks: rankingVM.homeTopTracks)
 
                     TopArtistsSection(artists: rankingVM.homeTopArtists)
-
-                    if let stats = statsVM.stats {
-                        HomeSourceBreakdownSection(stats: stats)
-                    }
                 }
                 .padding(.vertical)
             }

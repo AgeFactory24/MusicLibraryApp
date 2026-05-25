@@ -28,8 +28,11 @@ struct PeriodGenreDetailView: View {
                                 selectedGenre = selectedGenre?.id == data.id ? nil : data
                             }
                         } label: {
-                            PeriodGenreRow(data: data, totalPlayCount: totalPlayCount,
-                                           isSelected: selectedGenre?.id == data.id)
+                            PeriodGenreRow(
+                                data: data,
+                                totalPlayCount: totalPlayCount,
+                                isSelected: selectedGenre?.id == data.id
+                            )
                         }
                         .buttonStyle(.plain)
                     }
@@ -85,34 +88,69 @@ private struct PeriodGenreRow: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            HStack {
-                Circle()
-                    .fill(data.color)
-                    .frame(width: 12, height: 12)
-                Text(data.genre)
-                    .font(.subheadline.bold())
-                    .foregroundStyle(.primary)
-                Spacer()
-                Text("\(data.playCount)回")
-                    .font(.subheadline.bold())
-                    .foregroundStyle(.pink)
-                Text(String(format: "%.1f%%", ratio * 100))
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .frame(width: 44, alignment: .trailing)
-            }
-            GeometryReader { geo in
-                ZStack(alignment: .leading) {
-                    Capsule().fill(Color(.systemGray5))
-                    Capsule()
-                        .fill(data.color.gradient)
-                        .frame(width: max(geo.size.width * ratio, 4))
+        VStack(alignment: .leading, spacing: 0) {
+            VStack(alignment: .leading, spacing: 6) {
+                HStack {
+                    Circle()
+                        .fill(data.color)
+                        .frame(width: 12, height: 12)
+                    Text(data.genre)
+                        .font(.subheadline.bold())
+                        .foregroundStyle(.primary)
+                    Spacer()
+                    Text("\(data.playCount)回")
+                        .font(.subheadline.bold())
+                        .foregroundStyle(.pink)
+                    Text(String(format: "%.1f%%", ratio * 100))
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .frame(width: 44, alignment: .trailing)
+                    Image(systemName: "chevron.right")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .rotationEffect(.degrees(isSelected ? 90 : 0))
                 }
+                GeometryReader { geo in
+                    ZStack(alignment: .leading) {
+                        Capsule().fill(Color(.systemGray5))
+                        Capsule()
+                            .fill(data.color.gradient)
+                            .frame(width: max(geo.size.width * ratio, 4))
+                    }
+                }
+                .frame(height: 6)
             }
-            .frame(height: 6)
+            .padding()
+
+            if isSelected && !data.topArtists.isEmpty {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("この期間の代表アーティスト")
+                        .font(.caption.bold())
+                        .foregroundStyle(.secondary)
+
+                    ForEach(Array(data.topArtists.enumerated()), id: \.element.id) { index, artist in
+                        HStack(spacing: 10) {
+                            Text("\(index + 1)")
+                                .font(.caption.bold())
+                                .foregroundStyle(data.color)
+                                .frame(width: 18)
+                            ArtistArtworkView(artist: artist, size: 32)
+                            Text(artist.name)
+                                .font(.subheadline)
+                                .foregroundStyle(.primary)
+                                .lineLimit(1)
+                            Spacer()
+                            Text("\(artist.totalPlayCount)回")
+                                .font(.caption2)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                }
+                .padding(.horizontal)
+                .padding(.bottom, 12)
+                .transition(.opacity.combined(with: .move(edge: .top)))
+            }
         }
-        .padding()
         .background(Color(.secondarySystemBackground))
         .clipShape(RoundedRectangle(cornerRadius: 12))
     }
