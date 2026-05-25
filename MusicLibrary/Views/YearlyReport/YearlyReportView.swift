@@ -18,6 +18,7 @@ struct YearlyReportView: View {
             VStack(spacing: 20) {
                 yearSelector
 
+
                 if let report = viewModel.report, report.totalPlayCount > 0 {
                     summaryCard(report: report)
                     PersonalityInlineRow(personality: report.personality, reason: report.personalityReason)
@@ -35,6 +36,15 @@ struct YearlyReportView: View {
             }
             .padding(.vertical)
         }
+        .simultaneousGesture(
+            DragGesture(minimumDistance: 40, coordinateSpace: .local)
+                .onEnded { value in
+                    guard abs(value.translation.width) > abs(value.translation.height) * 1.5 else { return }
+                    Haptics.play(.light)
+                    if value.translation.width < 0 { changeYear(1) }
+                    else { changeYear(-1) }
+                }
+        )
         .navigationTitle("年間レポート")
         .navigationBarTitleDisplayMode(.large)
         .onAppear {
@@ -232,33 +242,19 @@ struct YearlyReportView: View {
                 .font(.headline)
                 .padding(.horizontal)
 
-            VStack(spacing: 0) {
-                ForEach(Array(report.topArtists.prefix(3).enumerated()), id: \.element.id) { index, artist in
-                    NavigationLink {
-                        ArtistDetailView(artist: artist)
-                    } label: {
-                        HStack(spacing: 12) {
-                            Text(rankLabel(index))
-                                .font(.title3)
-                                .frame(width: 30)
-                            Text(artist.name)
-                                .font(.subheadline.bold())
-                                .foregroundStyle(.primary)
-                            Spacer()
-                            Text("\(artist.totalPlayCount)回")
-                                .font(.caption.bold())
-                                .foregroundStyle(.pink)
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 16) {
+                    ForEach(Array(report.topArtists.prefix(5).enumerated()), id: \.element.id) { index, artist in
+                        NavigationLink {
+                            ArtistDetailView(artist: artist)
+                        } label: {
+                            ArtistChipView(rank: index + 1, artist: artist)
                         }
-                        .padding(.vertical, 10)
-                        .padding(.horizontal)
+                        .buttonStyle(.plain)
                     }
-                    .buttonStyle(.plain)
-                    if index < 2 { Divider().padding(.leading, 56) }
                 }
+                .padding(.horizontal)
             }
-            .background(Color(.secondarySystemBackground))
-            .clipShape(RoundedRectangle(cornerRadius: 16))
-            .padding(.horizontal)
         }
     }
 

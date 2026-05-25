@@ -41,28 +41,6 @@ struct MoreView: View {
                             subtitle: "1年間のリスニング履歴を振り返る"
                         )
                     }
-
-                    NavigationLink {
-                        LibraryView()
-                    } label: {
-                        MoreItemRow(
-                            icon: "music.note.list",
-                            color: .purple,
-                            title: "ライブラリ",
-                            subtitle: "楽曲・アーティスト・アルバム一覧"
-                        )
-                    }
-
-                    NavigationLink {
-                        StatisticsView()
-                    } label: {
-                        MoreItemRow(
-                            icon: "chart.pie.fill",
-                            color: .orange,
-                            title: "統計",
-                            subtitle: "全体統計とジャンル分析"
-                        )
-                    }
                 }
 
                 Section {

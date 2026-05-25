@@ -26,17 +26,23 @@ struct HomeView: View {
                         SummarySection(stats: stats)
                     }
 
-                    if let tag = statsVM.topPersonalityTag {
+                    PeriodPickerSection(period: $rankingVM.homeRankingPeriod)
+
+                    if let tag = rankingVM.homePersonalityTag {
                         HomePersonalitySection(tag: tag)
                             .environmentObject(libraryVM)
                     }
 
-                    TopTracksSection(
-                        tracks: rankingVM.homeTopTracks,
-                        period: $rankingVM.homeRankingPeriod
-                    )
+                    TopTracksSection(tracks: rankingVM.homeTopTracks)
 
-                    TopArtistsSection(artists: rankingVM.topArtists)
+                    TopArtistsSection(artists: rankingVM.homeTopArtists)
+
+                    GenreAnalysisView()
+                        .environmentObject(libraryVM)
+
+                    if let stats = statsVM.stats {
+                        HomeSourceBreakdownSection(stats: stats)
+                    }
                 }
                 .padding(.vertical)
             }
@@ -72,26 +78,41 @@ private struct SummarySection: View {
     }
 }
 
-private struct TopTracksSection: View {
-    let tracks: [Track]
+private struct PeriodPickerSection: View {
     @Binding var period: RankingPeriod
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack(alignment: .center) {
-                Text("再生回数TOP5")
-                    .font(.title3.bold())
-                    .padding(.leading)
-                Spacer()
-                Picker("期間", selection: $period) {
+        VStack(alignment: .leading, spacing: 8) {
+            SectionHeader(title: "集計期間")
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 8) {
                     ForEach(RankingPeriod.allCases, id: \.self) { p in
-                        Text(p.rawValue).tag(p)
+                        Button {
+                            period = p
+                        } label: {
+                            Text(p.rawValue)
+                                .font(.subheadline.bold())
+                                .padding(.horizontal, 16)
+                                .padding(.vertical, 8)
+                                .background(period == p ? Color.pink : Color(.secondarySystemBackground))
+                                .foregroundStyle(period == p ? .white : .primary)
+                                .clipShape(Capsule())
+                        }
+                        .buttonStyle(.plain)
                     }
                 }
-                .pickerStyle(.menu)
-                .tint(.pink)
-                .padding(.trailing, 8)
+                .padding(.horizontal)
             }
+        }
+    }
+}
+
+private struct TopTracksSection: View {
+    let tracks: [Track]
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            SectionHeader(title: "再生回数TOP5")
 
             if tracks.isEmpty {
                 Text("この期間の再生履歴がありません")
@@ -259,7 +280,7 @@ private struct HomePersonalitySection: View {
     }
 }
 
-private struct ArtistChipView: View {
+struct ArtistChipView: View {
     let rank: Int
     let artist: Artist
 
@@ -284,6 +305,50 @@ private struct ArtistChipView: View {
             Text("\(artist.totalPlayCount)回")
                 .font(.caption2)
                 .foregroundStyle(.secondary)
+        }
+    }
+}
+
+// MARK: - 音源の内訳セクション
+
+private struct HomeSourceBreakdownSection: View {
+    let stats: ListeningStats
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            SectionHeader(title: "音源の内訳")
+
+            HStack(spacing: 12) {
+                StatCardView(title: "CD取り込み", value: "\(stats.localAssetCount)曲",
+                             icon: "opticaldisc", color: .blue)
+                StatCardView(title: "Apple Music", value: "\(stats.streamingCount)曲",
+                             icon: "applelogo", color: .pink)
+            }
+            .padding(.horizontal)
+
+            VStack(alignment: .leading, spacing: 6) {
+                HStack {
+                    Label("再生数の内訳", systemImage: "play.fill")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    Spacer()
+                    Text("CD \(Int(stats.localPlayRatio * 100))% / Apple Music \(Int((1 - stats.localPlayRatio) * 100))%")
+                        .font(.caption.monospacedDigit())
+                        .foregroundStyle(.secondary)
+                }
+                GeometryReader { geo in
+                    HStack(spacing: 0) {
+                        Rectangle()
+                            .fill(.blue)
+                            .frame(width: geo.size.width * stats.localPlayRatio)
+                        Rectangle()
+                            .fill(.pink)
+                    }
+                }
+                .frame(height: 8)
+                .clipShape(Capsule())
+            }
+            .padding(.horizontal)
         }
     }
 }

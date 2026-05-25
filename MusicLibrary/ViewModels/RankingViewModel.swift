@@ -40,6 +40,8 @@ final class RankingViewModel: ObservableObject {
     // ホーム画面用（ランキング画面と独立）
     @Published var homeRankingPeriod: RankingPeriod = .recentWeek
     @Published var homeTopTracks: [Track] = []
+    @Published var homeTopArtists: [Artist] = []
+    @Published var homePersonalityTag: PersonalityTag?
 
     private let service = MusicLibraryService()
     private let repository = PlayHistoryRepository()
@@ -57,10 +59,17 @@ final class RankingViewModel: ObservableObject {
     // MARK: - ホーム画面用
 
     func buildHomeRanking(libraryTracks: [Track]) {
-        homeTopTracks = Array(
-            buildRankingData(period: homeRankingPeriod, libraryTracks: libraryTracks)
-                .tracks.prefix(5)
-        )
+        let data = buildRankingData(period: homeRankingPeriod, libraryTracks: libraryTracks)
+        homeTopTracks = Array(data.tracks.prefix(5))
+        homeTopArtists = Array(data.artists.prefix(10))
+
+        let analysisSource = homeRankingPeriod == .allTime ? libraryTracks : data.tracks
+        if !analysisSource.isEmpty {
+            let metrics = PersonalityAnalysisEngine.buildMetrics(from: analysisSource)
+            homePersonalityTag = PersonalityAnalysisEngine.evaluate(metrics: metrics, topCount: 1).first
+        } else {
+            homePersonalityTag = nil
+        }
     }
 
     // MARK: - 共通ロジック
