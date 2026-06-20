@@ -97,7 +97,7 @@ final class PlayHistoryTracker: ObservableObject {
                 playCount: Int32(item.playCount),
                 duration: item.playbackDuration,
                 lastPlayedDate: item.lastPlayedDate ?? Date(),
-                isLocalAsset: item.assetURL != nil
+                isLocalAsset: item.isLocalAsset
             )
         }
 
@@ -355,7 +355,7 @@ final class PlayHistoryTracker: ObservableObject {
                 playCount: Int32(item.playCount),
                 duration: item.playbackDuration,
                 lastPlayedDate: item.lastPlayedDate ?? Date(),
-                isLocalAsset: item.assetURL != nil
+                isLocalAsset: item.isLocalAsset
             )
         }
 

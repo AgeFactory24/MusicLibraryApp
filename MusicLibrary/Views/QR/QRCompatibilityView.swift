@@ -395,35 +395,35 @@ struct QRDataScannerView: UIViewControllerRepresentable {
     }
 }
 
-// MARK: - 相性結果カード
+// MARK: - 相性結果カード（5-A + 5-B）
 
 struct CompatibilityResultCard: View {
     let result: CompatibilityResult
     @EnvironmentObject var libraryVM: LibraryViewModel
 
-    @State private var displayedScore: Int = 0
     @State private var barProgress: Double = 0
+
+    private var myColor: Color {
+        Personality(rawValue: result.myProfile.personalityType)?.gradient.first ?? .pink
+    }
+    private var partnerColor: Color {
+        Personality(rawValue: result.partnerProfile.personalityType)?.gradient.first ?? .purple
+    }
 
     var body: some View {
         VStack(spacing: 0) {
-            personalityHeader
+            compatibilityHeader
                 .padding()
                 .onAppear {
-                    startScoreAnimation()
-                    withAnimation(.easeOut(duration: 1.4)) {
-                        barProgress = 1.0
-                    }
+                    withAnimation(.easeOut(duration: 1.4)) { barProgress = 1.0 }
                 }
 
             Divider()
-
-            detailRows
-                .padding()
+            detailRows.padding()
 
             if !result.commonArtists.isEmpty {
                 Divider()
-                commonArtistsSection
-                    .padding()
+                commonArtistsSection.padding()
             }
 
             if !result.reason.isEmpty {
@@ -440,15 +440,25 @@ struct CompatibilityResultCard: View {
         .padding(.horizontal)
     }
 
-    // MARK: - ヘッダー（パーソナリティ画像 + スコア）
+    // MARK: - 5-A + 5-B ヘッダー
 
-    private var personalityHeader: some View {
-        VStack(spacing: 14) {
-            HStack(alignment: .center, spacing: 0) {
-                profileColumn(profile: result.myProfile)
-                scoreColumn
-                profileColumn(profile: result.partnerProfile)
-            }
+    private var compatibilityHeader: some View {
+        VStack(spacing: 16) {
+            // 5-A: 引き合う / 反発するバッジアニメーション
+            BadgeAttractionView(
+                myPersonality:      result.myProfile.personalityType,
+                partnerPersonality: result.partnerProfile.personalityType,
+                myName:             result.myProfile.displayName,
+                partnerName:        result.partnerProfile.displayName,
+                score:              result.score
+            )
+
+            // 5-B: 数値スコアの代わりに波形の重なりで相性を表現
+            WaveOverlapView(
+                score:        Double(result.score) / 100.0,
+                myColor:      myColor,
+                partnerColor: partnerColor
+            )
 
             Text(result.level.label)
                 .font(.headline.bold())
@@ -456,75 +466,14 @@ struct CompatibilityResultCard: View {
         }
     }
 
-    private func profileColumn(profile: ListeningProfile) -> some View {
-        VStack(spacing: 6) {
-            personalityIcon(for: profile.personalityType, size: 72)
-            Text(profile.displayName)
-                .font(.caption.bold())
-                .foregroundStyle(.primary)
-                .lineLimit(1)
-            Text(profile.personalityType)
-                .font(.caption2)
-                .foregroundStyle(.secondary)
-                .lineLimit(1)
-        }
-        .frame(maxWidth: .infinity)
-    }
-
-    private var scoreColumn: some View {
-        VStack(spacing: 2) {
-            Text("\(displayedScore)")
-                .font(.system(size: 48, weight: .heavy, design: .rounded))
-                .foregroundStyle(result.level.color)
-                .monospacedDigit()
-                .contentTransition(.numericText(value: Double(displayedScore)))
-            Text("/ 100")
-                .font(.caption)
-                .foregroundStyle(.secondary)
-        }
-        .frame(width: 80)
-    }
-
-    private func startScoreAnimation() {
-        let target = result.score
-        Task { @MainActor in
-            let duration = 1.4
-            let startTime = Date()
-            while true {
-                let elapsed = Date().timeIntervalSince(startTime)
-                let progress = min(elapsed / duration, 1.0)
-                let eased = 1.0 - pow(1.0 - progress, 3.0)
-                displayedScore = Int(Double(target) * eased)
-                if progress >= 1.0 {
-                    displayedScore = target
-                    break
-                }
-                try? await Task.sleep(for: .milliseconds(16))
-            }
-        }
-    }
-
-    @ViewBuilder
-    private func personalityIcon(for type: String, size: CGFloat) -> some View {
-        if let p = Personality(rawValue: type) {
-            PersonalityIconSymbol(personality: p, size: size)
-        } else {
-            Circle()
-                .fill(LinearGradient(
-                    colors: [.pink.opacity(0.3), .purple.opacity(0.3)],
-                    startPoint: .topLeading, endPoint: .bottomTrailing))
-                .frame(width: size, height: size)
-        }
-    }
-
-    // MARK: - スコアバー
+    // MARK: - スコアバー（詳細）
 
     private var detailRows: some View {
         VStack(spacing: 10) {
-            scoreRow(label: "共通アーティスト", score: result.artistScore, icon: "music.mic", weight: "40%")
-            scoreRow(label: "パーソナリティ", score: result.personalityScore, icon: "person.crop.circle", weight: "20%")
-            scoreRow(label: "ジャンル傾向", score: result.genreScore, icon: "music.note.list", weight: "20%")
-            scoreRow(label: "音源へのこだわり", score: result.trendScore, icon: "opticaldisc", weight: "20%")
+            scoreRow(label: "共通アーティスト", score: result.artistScore, icon: "music.mic",         weight: "40%")
+            scoreRow(label: "パーソナリティ",   score: result.personalityScore, icon: "person.crop.circle", weight: "20%")
+            scoreRow(label: "ジャンル傾向",     score: result.genreScore,        icon: "music.note.list",   weight: "20%")
+            scoreRow(label: "音源へのこだわり", score: result.trendScore,        icon: "opticaldisc",       weight: "20%")
         }
     }
 
@@ -535,9 +484,7 @@ struct CompatibilityResultCard: View {
                     .font(.caption.bold())
                     .foregroundStyle(.secondary)
                 Spacer()
-                Text(weight)
-                    .font(.caption2)
-                    .foregroundStyle(.secondary)
+                Text(weight).font(.caption2).foregroundStyle(.secondary)
                 Text("\(Int(score * 100))pt")
                     .font(.caption.bold())
                     .foregroundStyle(.pink)
@@ -572,15 +519,220 @@ struct CompatibilityResultCard: View {
                     ForEach(result.commonArtists, id: \.self) { name in
                         VStack(spacing: 6) {
                             ArtistArtworkView(artist: artist(named: name), size: 52)
-                            Text(name)
-                                .font(.caption2)
-                                .lineLimit(1)
-                                .frame(width: 60)
+                            Text(name).font(.caption2).lineLimit(1).frame(width: 60)
                         }
                     }
                 }
                 .padding(.horizontal, 2)
             }
+        }
+    }
+}
+
+// MARK: - 5-A: バッジ引き合い / 反発アニメーション
+
+private struct BadgeAttractionView: View {
+    let myPersonality:      String
+    let partnerPersonality: String
+    let myName:             String
+    let partnerName:        String
+    let score:              Int
+
+    @State private var arrived     = false
+    @State private var pulsing     = false   // 高相性：同期パルス
+    @State private var repelDist: CGFloat = 0 // 低相性：反発量
+
+    private var isHighCompat: Bool { score >= 60 }
+    private var myColor:      Color { Personality(rawValue: myPersonality)?.gradient.first      ?? .pink   }
+    private var partnerColor: Color { Personality(rawValue: partnerPersonality)?.gradient.first ?? .purple }
+
+    var body: some View {
+        ZStack {
+            // 高相性：中央グロー
+            if isHighCompat {
+                Circle()
+                    .fill(RadialGradient(
+                        colors: [.white.opacity(0.55), .clear],
+                        center: .center, startRadius: 0, endRadius: 26
+                    ))
+                    .frame(width: 52, height: 52)
+                    .blur(radius: 11)
+                    .scaleEffect(pulsing ? 1.55 : 0.55)
+                    .opacity(arrived ? 1 : 0)
+                    .animation(
+                        arrived ? .easeInOut(duration: 1.8).repeatForever(autoreverses: true) : .default,
+                        value: pulsing
+                    )
+            }
+
+            HStack(spacing: 20) {
+                // 自分バッジ（左から登場）
+                VStack(spacing: 5) {
+                    badgeIcon(for: myPersonality, size: 76)
+                        .shadow(color: myColor.opacity(pulsing && isHighCompat ? 0.75 : 0.20), radius: 18)
+                        .scaleEffect(isHighCompat && pulsing ? 1.08 : 1.0)
+                        .animation(
+                            arrived && isHighCompat
+                                ? .easeInOut(duration: 1.8).repeatForever(autoreverses: true)
+                                : .default,
+                            value: pulsing
+                        )
+                    Text(myName).font(.caption.bold()).foregroundStyle(.primary).lineLimit(1)
+                    Text(myPersonality).font(.caption2).foregroundStyle(.secondary).lineLimit(1)
+                }
+                .frame(maxWidth: .infinity)
+                // 登場オフセット（到着 or 画面外）
+                .offset(x: arrived ? 0 : -115)
+                .animation(.spring(response: 0.85, dampingFraction: 0.65).delay(0.15), value: arrived)
+                // 低相性：左へ反発
+                .offset(x: -repelDist)
+
+                // 相手バッジ（右から登場）
+                VStack(spacing: 5) {
+                    badgeIcon(for: partnerPersonality, size: 76)
+                        .shadow(color: partnerColor.opacity(pulsing && isHighCompat ? 0.75 : 0.20), radius: 18)
+                        .scaleEffect(isHighCompat && pulsing ? 1.08 : 1.0)
+                        .animation(
+                            arrived && isHighCompat
+                                ? .easeInOut(duration: 1.8).repeatForever(autoreverses: true)
+                                : .default,
+                            value: pulsing
+                        )
+                    Text(partnerName).font(.caption.bold()).foregroundStyle(.primary).lineLimit(1)
+                    Text(partnerPersonality).font(.caption2).foregroundStyle(.secondary).lineLimit(1)
+                }
+                .frame(maxWidth: .infinity)
+                .offset(x: arrived ? 0 : 115)
+                .animation(.spring(response: 0.85, dampingFraction: 0.65).delay(0.15), value: arrived)
+                // 低相性：右へ反発
+                .offset(x: repelDist)
+            }
+        }
+        .frame(height: 130)
+        .clipped()
+        .onAppear {
+            // Step 1: 両バッジが中央へ引き合う
+            withAnimation(.spring(response: 0.85, dampingFraction: 0.65).delay(0.15)) {
+                arrived = true
+            }
+            // Step 2: 相性によって演出を分岐
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.15) {
+                if isHighCompat {
+                    // 高相性: 同期パルス
+                    withAnimation(.easeInOut(duration: 1.8).repeatForever(autoreverses: true)) {
+                        pulsing = true
+                    }
+                } else {
+                    // 低相性: 反発オシレーション
+                    withAnimation(.easeInOut(duration: 0.80).repeatForever(autoreverses: true)) {
+                        repelDist = 10
+                    }
+                }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func badgeIcon(for type: String, size: CGFloat) -> some View {
+        if let p = Personality(rawValue: type) {
+            PersonalityIconSymbol(personality: p, size: size)
+        } else {
+            Circle()
+                .fill(LinearGradient(
+                    colors: [.pink.opacity(0.4), .purple.opacity(0.4)],
+                    startPoint: .topLeading, endPoint: .bottomTrailing
+                ))
+                .frame(width: size, height: size)
+        }
+    }
+}
+
+// MARK: - 5-B: 波形の重なりで相性を表現
+
+private struct WaveOverlapView: View {
+    let score:        Double   // 0..1
+    let myColor:      Color
+    let partnerColor: Color
+
+    @State private var startDate = Date()
+    @State private var appeared  = false
+
+    var body: some View {
+        VStack(spacing: 6) {
+            TimelineView(.animation) { tl in
+                let t = tl.date.timeIntervalSince(startDate)
+                Canvas { ctx, size in
+                    guard appeared else { return }
+
+                    let w   = size.width
+                    let h   = size.height
+                    let cy  = h / 2
+                    let amp = h * 0.30
+                    // 高スコア → 位相差小 → 波形が重なる
+                    let phaseDiff = (1.0 - score) * .pi * 1.5
+
+                    // 波形ポイントを事前計算
+                    var myPts:  [(Double, Double)] = []
+                    var prtPts: [(Double, Double)] = []
+                    var x = 0.0
+                    while x <= w + 4 {
+                        myPts.append((x, cy + amp * sin(x * 0.046 - t * 1.7)))
+                        prtPts.append((x, cy + amp * sin(x * 0.046 - t * 1.7 + phaseDiff)))
+                        x += 4
+                    }
+
+                    // 重なり部分グロー（スクリーン合成）
+                    ctx.blendMode = .screen
+                    for i in 0..<myPts.count {
+                        let (px, myY)  = myPts[i]
+                        let (_, prtY)  = prtPts[i]
+                        let proximity  = max(0.0, 1.0 - abs(myY - prtY) / (amp * 1.6))
+                        let op         = proximity * 0.82 * score
+                        guard op > 0.04 else { continue }
+                        let gy = (myY + prtY) / 2
+                        var g  = Path()
+                        g.addEllipse(in: CGRect(x: px - 5, y: gy - 5, width: 10, height: 10))
+                        ctx.fill(g, with: .color(Color.white.opacity(op)))
+                    }
+                    ctx.blendMode = .normal
+
+                    // 自分の波形
+                    var myPath = Path()
+                    for (i, (px, py)) in myPts.enumerated() {
+                        if i == 0 { myPath.move(to: CGPoint(x: px, y: py)) }
+                        else       { myPath.addLine(to: CGPoint(x: px, y: py)) }
+                    }
+                    ctx.stroke(myPath, with: .color(myColor.opacity(0.85)), lineWidth: 1.5)
+
+                    // 相手の波形
+                    var prtPath = Path()
+                    for (i, (px, py)) in prtPts.enumerated() {
+                        if i == 0 { prtPath.move(to: CGPoint(x: px, y: py)) }
+                        else       { prtPath.addLine(to: CGPoint(x: px, y: py)) }
+                    }
+                    ctx.stroke(prtPath, with: .color(partnerColor.opacity(0.85)), lineWidth: 1.5)
+                }
+            }
+            .frame(height: 68)
+            .background(Color(.systemBackground).opacity(0.55))
+            .clipShape(RoundedRectangle(cornerRadius: 10))
+            .opacity(appeared ? 1 : 0)
+
+            // 凡例 + スコア数値
+            HStack {
+                Circle().fill(myColor).frame(width: 6, height: 6)
+                Text("あなた").font(.caption2).foregroundStyle(.secondary)
+                Spacer()
+                Text("\(Int(score * 100))pt")
+                    .font(.caption2.bold()).foregroundStyle(.secondary)
+                Spacer()
+                Text("相手").font(.caption2).foregroundStyle(.secondary)
+                Circle().fill(partnerColor).frame(width: 6, height: 6)
+            }
+            .padding(.horizontal, 4)
+        }
+        .onAppear {
+            withAnimation(.easeIn(duration: 0.5).delay(0.9)) { appeared = true }
         }
     }
 }

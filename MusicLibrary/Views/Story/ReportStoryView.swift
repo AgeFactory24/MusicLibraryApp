@@ -368,6 +368,22 @@ private struct TotalPlaysPage: View {
     let data: StoryReportData
     let displayName: String
     @State private var animate = false
+    @State private var counterStart: Date = .distantFuture
+
+    private var contextText: String {
+        let secs = Int(data.totalPlayTime)
+        let h = secs / 3600
+        let d = h / 24
+        if d >= 1 {
+            let rh = h - d * 24
+            return rh > 0 ? "≈ \(d)日\(rh)時間分の音楽" : "≈ \(d)日分の音楽"
+        } else if h >= 1 {
+            let rm = (secs % 3600) / 60
+            return rm > 0 ? "≈ \(h)時間\(rm)分の音楽" : "≈ \(h)時間分の音楽"
+        } else {
+            return "≈ \(max(1, secs / 60))分の音楽"
+        }
+    }
 
     var body: some View {
         ZStack {
@@ -380,17 +396,35 @@ private struct TotalPlaysPage: View {
                     .font(.title3)
                     .foregroundStyle(.white.opacity(0.9))
                     .opacity(animate ? 1 : 0)
+                    .animation(.easeOut(duration: 0.5).delay(0.2), value: animate)
 
-                Text("\(data.totalPlayCount)")
-                    .font(.system(size: 100, weight: .black, design: .rounded))
-                    .foregroundStyle(.white)
-                    .scaleEffect(animate ? 1 : 0.3)
-                    .opacity(animate ? 1 : 0)
+                VStack(spacing: 6) {
+                    TimelineView(.animation(minimumInterval: 1.0 / 60.0)) { ctx in
+                        let elapsed = max(0, ctx.date.timeIntervalSince(counterStart))
+                        let progress = min(1.0, elapsed / 1.5)
+                        let eased = 1.0 - pow(1.0 - progress, 3)
+                        let count = Int(Double(data.totalPlayCount) * eased)
+                        Text("\(count)")
+                            .font(.system(size: 100, weight: .black, design: .rounded))
+                            .foregroundStyle(.white)
+                            .monospacedDigit()
+                    }
+
+                    Text(contextText)
+                        .font(.subheadline)
+                        .foregroundStyle(.white.opacity(0.72))
+                        .opacity(animate ? 1 : 0)
+                        .animation(.easeOut(duration: 0.5).delay(0.55), value: animate)
+                }
+                .scaleEffect(animate ? 1 : 0.3)
+                .opacity(animate ? 1 : 0)
+                .animation(.spring(response: 0.8, dampingFraction: 0.7).delay(0.2), value: animate)
 
                 Text("回の再生をしました")
                     .font(.title3.bold())
                     .foregroundStyle(.white)
                     .opacity(animate ? 1 : 0)
+                    .animation(.easeOut(duration: 0.5).delay(0.4), value: animate)
 
                 Spacer()
 
@@ -406,13 +440,15 @@ private struct TotalPlaysPage: View {
                         .foregroundStyle(.white.opacity(0.8))
                 }
                 .opacity(animate ? 1 : 0)
+                .animation(.easeOut(duration: 0.5).delay(0.6), value: animate)
 
                 Spacer().frame(height: 60)
             }
         }
         .onAppear {
-            withAnimation(.spring(response: 0.8, dampingFraction: 0.7).delay(0.2)) {
-                animate = true
+            withAnimation { animate = true }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) {
+                counterStart = Date()
             }
         }
     }
@@ -734,48 +770,182 @@ private struct PersonalityPage: View {
     let data: StoryReportData
     let displayName: String
     @State private var animate = false
+    @State private var waveStart = Date()
 
     var body: some View {
         ZStack {
-            StoryBackground(colors: data.personality.gradient)
+            // Animated wave background
+            TimelineView(.animation) { ctx in
+                let t = ctx.date.timeIntervalSince(waveStart)
+                Canvas { drawCtx, sz in
+                    drawPersonalityWaveBackground(
+                        &drawCtx, size: sz, t: t,
+                        colors: data.personality.gradient
+                    )
+                }
+            }
+            .ignoresSafeArea()
 
-            VStack(spacing: 20) {
+            // Darkening overlay for text legibility
+            LinearGradient(
+                colors: [.black.opacity(0.28), .clear, .black.opacity(0.65)],
+                startPoint: .top,
+                endPoint: .bottom
+            )
+            .ignoresSafeArea()
+
+            VStack(spacing: 0) {
                 Spacer()
 
                 Text("\(displayName)は")
                     .font(.title3)
-                    .foregroundStyle(.white.opacity(0.9))
+                    .foregroundStyle(.white.opacity(0.85))
+                    .opacity(animate ? 1 : 0)
+                    .offset(y: animate ? 0 : 20)
+                    .animation(.easeOut(duration: 0.5).delay(0.1), value: animate)
+                    .padding(.bottom, 20)
 
-                Group {
-                    if let p = Personality.allCases.first(where: { $0.rawValue == data.personality.title }) {
-                        PersonalityIconSymbol(personality: p, size: 140)
+                // Badge with expanding glow rings
+                ZStack {
+                    ForEach(0..<3, id: \.self) { i in
+                        Circle()
+                            .stroke(
+                                LinearGradient(
+                                    colors: data.personality.gradient.map {
+                                        $0.opacity(max(0, 0.42 - Double(i) * 0.12))
+                                    },
+                                    startPoint: .topLeading,
+                                    endPoint: .bottomTrailing
+                                ),
+                                lineWidth: max(0.5, 1.8 - Double(i) * 0.5)
+                            )
+                            .frame(
+                                width: 186 + CGFloat(i * 44),
+                                height: 186 + CGFloat(i * 44)
+                            )
+                            .scaleEffect(animate ? 1.0 : 0.3)
+                            .opacity(animate ? 1 : 0)
+                            .animation(
+                                .spring(response: 1.0, dampingFraction: 0.5)
+                                    .delay(0.18 + Double(i) * 0.12),
+                                value: animate
+                            )
+                    }
+
+                    if let p = Personality.allCases.first(where: {
+                        $0.rawValue == data.personality.title
+                    }) {
+                        PersonalityIconSymbol(personality: p, size: 160)
+                            .shadow(
+                                color: (data.personality.gradient.first ?? .pink).opacity(0.8),
+                                radius: 28
+                            )
                     } else {
                         Text(data.personality.emoji)
-                            .font(.system(size: 100))
+                            .font(.system(size: 120))
                     }
                 }
-                .scaleEffect(animate ? 1 : 0.5)
+                .scaleEffect(animate ? 1.0 : 0.15)
                 .opacity(animate ? 1 : 0)
+                .animation(.spring(response: 0.85, dampingFraction: 0.5).delay(0.15), value: animate)
+                .padding(.bottom, 28)
 
+                // Title with neon glow
                 Text(data.personality.title)
-                    .font(.system(size: 40, weight: .black, design: .rounded))
+                    .font(.system(size: 48, weight: .black, design: .rounded))
                     .foregroundStyle(.white)
+                    .shadow(
+                        color: (data.personality.gradient.first ?? .pink).opacity(0.9),
+                        radius: 22
+                    )
+                    .shadow(
+                        color: (data.personality.gradient.first ?? .pink).opacity(0.5),
+                        radius: 44
+                    )
                     .multilineTextAlignment(.center)
                     .padding(.horizontal, 24)
+                    .scaleEffect(animate ? 1.0 : 0.5)
+                    .opacity(animate ? 1 : 0)
+                    .animation(.spring(response: 0.7, dampingFraction: 0.6).delay(0.35), value: animate)
+                    .padding(.bottom, 14)
 
                 Text(data.personality.description)
                     .font(.headline)
-                    .foregroundStyle(.white.opacity(0.95))
+                    .foregroundStyle(.white.opacity(0.9))
                     .multilineTextAlignment(.center)
-                    .padding(.horizontal, 32)
+                    .padding(.horizontal, 36)
+                    .opacity(animate ? 1 : 0)
+                    .offset(y: animate ? 0 : 16)
+                    .animation(.easeOut(duration: 0.6).delay(0.5), value: animate)
+                    .padding(.bottom, 20)
+
+                Text("あなたの音楽の旅が、この人格を生んだ")
+                    .font(.caption)
+                    .foregroundStyle(.white.opacity(0.55))
+                    .opacity(animate ? 1 : 0)
+                    .animation(.easeOut(duration: 0.6).delay(0.7), value: animate)
 
                 Spacer().frame(height: 180)
             }
         }
         .onAppear {
-            withAnimation(.spring(response: 0.8, dampingFraction: 0.6).delay(0.2)) {
-                animate = true
-            }
+            waveStart = Date()
+            animate = true
         }
     }
+}
+
+// MARK: - Wave background (4-D 覚醒ページ)
+
+private func drawPersonalityWaveBackground(
+    _ ctx: inout GraphicsContext,
+    size: CGSize,
+    t: Double,
+    colors: [Color]
+) {
+    let w = size.width
+    let h = size.height
+    let c1 = colors.first ?? .pink
+    let c2 = colors.last ?? .purple
+
+    ctx.fill(
+        Path(CGRect(origin: .zero, size: size)),
+        with: .linearGradient(
+            Gradient(colors: [c1, c2]),
+            startPoint: .zero,
+            endPoint: CGPoint(x: w, y: h)
+        )
+    )
+
+    ctx.blendMode = .screen
+    let defs: [(freq: Double, amp: Double, spd: Double, yFrac: Double, c1: Bool, op: Double)] = [
+        (0.013, h * 0.09, 0.75, 0.20, true,  0.22),
+        (0.009, h * 0.11, 1.10, 0.36, false, 0.26),
+        (0.016, h * 0.07, 0.90, 0.52, true,  0.18),
+        (0.011, h * 0.10, 1.28, 0.67, false, 0.22),
+        (0.014, h * 0.08, 0.65, 0.82, true,  0.20),
+    ]
+    for wd in defs {
+        let wc = wd.c1 ? c1 : c2
+        var pts = [CGPoint]()
+        var x: Double = 0
+        while x <= w {
+            let y = h * wd.yFrac
+                + sin(x * wd.freq - t * wd.spd) * wd.amp
+                + sin(x * wd.freq * 1.73 + t * wd.spd * 0.55) * wd.amp * 0.38
+            pts.append(CGPoint(x: x, y: y))
+            x += 3
+        }
+        guard pts.count >= 2 else { continue }
+        var path = Path()
+        path.move(to: pts[0])
+        for j in 1..<pts.count - 1 {
+            let m = CGPoint(x: (pts[j].x + pts[j+1].x) / 2,
+                            y: (pts[j].y + pts[j+1].y) / 2)
+            path.addQuadCurve(to: m, control: pts[j])
+        }
+        path.addLine(to: pts.last!)
+        ctx.stroke(path, with: .color(wc.opacity(wd.op)), lineWidth: 2.0)
+    }
+    ctx.blendMode = .normal
 }

@@ -29,7 +29,7 @@ final class MusicLibraryService: ObservableObject {
                 playCount: item.playCount,
                 duration: item.playbackDuration,
                 artworkURL: nil,
-                isLocalAsset: item.assetURL != nil,
+                isLocalAsset: item.isLocalAsset,
                 lastPlayedDate: item.lastPlayedDate,
                 genre: item.genre ?? "その他",
                 dateAdded: item.dateAdded

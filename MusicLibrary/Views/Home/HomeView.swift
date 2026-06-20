@@ -23,16 +23,15 @@ struct HomeView: View {
                     .padding(.top, 4)
 
                     if let stats = statsVM.stats {
-                        SummarySection(stats: stats)
-                        HomeSourceBreakdownSection(stats: stats)
+                        StatsGridSection(stats: stats)
                     }
-
-                    PeriodPickerSection(period: $rankingVM.homeRankingPeriod)
 
                     if let tag = rankingVM.homePersonalityTag {
                         HomePersonalitySection(tag: tag)
                             .environmentObject(libraryVM)
                     }
+
+                    PeriodPickerSection(period: $rankingVM.homeRankingPeriod)
 
                     TopTracksSection(tracks: rankingVM.homeTopTracks)
 
@@ -50,41 +49,69 @@ struct HomeView: View {
     }
 }
 
-private struct SummarySection: View {
+private struct StatsGridSection: View {
     let stats: ListeningStats
 
     var body: some View {
-        HStack(spacing: 0) {
-            SummaryItem(value: "\(stats.totalPlayCount)", label: "再生回数", color: .pink)
-            Divider().frame(height: 36)
-            SummaryItem(value: stats.totalPlayTimeFormatted, label: "総再生時間", color: .orange)
-            Divider().frame(height: 36)
-            SummaryItem(value: "\(stats.uniqueArtistCount)", label: "アーティスト", color: .purple)
+        LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
+            StatGridCard(
+                title: "再生回数",
+                value: "\(stats.totalPlayCount)回",
+                icon: "music.note",
+                color: .pink
+            )
+            StatGridCard(
+                title: "総再生時間",
+                value: stats.totalPlayTimeFormatted,
+                icon: "clock.fill",
+                color: .orange
+            )
+            StatGridCard(
+                title: "アーティスト",
+                value: "\(stats.uniqueArtistCount)組",
+                icon: "person.2.fill",
+                color: .purple
+            )
+            StatGridCard(
+                title: "CD比率",
+                value: "\(Int(stats.localPlayRatio * 100))%",
+                icon: "opticaldisc",
+                color: .blue
+            )
         }
-        .padding(.vertical, 14)
-        .background(Color(.secondarySystemBackground))
-        .clipShape(RoundedRectangle(cornerRadius: 16))
         .padding(.horizontal)
     }
 }
 
-private struct SummaryItem: View {
+private struct StatGridCard: View {
+    let title: String
     let value: String
-    let label: String
+    let icon:  String
     let color: Color
 
     var body: some View {
-        VStack(spacing: 4) {
-            Text(value)
-                .font(.headline.bold())
+        VStack(alignment: .leading, spacing: 10) {
+            Image(systemName: icon)
+                .font(.subheadline.bold())
                 .foregroundStyle(color)
-                .minimumScaleFactor(0.7)
+                .padding(8)
+                .background(color.opacity(0.12))
+                .clipShape(RoundedRectangle(cornerRadius: 8))
+
+            Text(value)
+                .font(.title2.bold())
+                .foregroundStyle(.primary)
+                .minimumScaleFactor(0.65)
                 .lineLimit(1)
-            Text(label)
+
+            Text(title)
                 .font(.caption2)
                 .foregroundStyle(.secondary)
         }
-        .frame(maxWidth: .infinity)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(14)
+        .background(Color(.secondarySystemBackground))
+        .clipShape(RoundedRectangle(cornerRadius: 16))
     }
 }
 
@@ -319,46 +346,3 @@ struct ArtistChipView: View {
     }
 }
 
-// MARK: - 音源の内訳セクション
-
-private struct HomeSourceBreakdownSection: View {
-    let stats: ListeningStats
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            SectionHeader(title: "音源の内訳")
-
-            HStack(spacing: 12) {
-                StatCardView(title: "CD取り込み", value: "\(stats.localAssetCount)曲",
-                             icon: "opticaldisc", color: .blue)
-                StatCardView(title: "Apple Music", value: "\(stats.streamingCount)曲",
-                             icon: "applelogo", color: .pink)
-            }
-            .padding(.horizontal)
-
-            VStack(alignment: .leading, spacing: 6) {
-                HStack {
-                    Label("再生数の内訳", systemImage: "play.fill")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                    Spacer()
-                    Text("CD \(Int(stats.localPlayRatio * 100))% / Apple Music \(Int((1 - stats.localPlayRatio) * 100))%")
-                        .font(.caption.monospacedDigit())
-                        .foregroundStyle(.secondary)
-                }
-                GeometryReader { geo in
-                    HStack(spacing: 0) {
-                        Rectangle()
-                            .fill(.blue)
-                            .frame(width: geo.size.width * stats.localPlayRatio)
-                        Rectangle()
-                            .fill(.pink)
-                    }
-                }
-                .frame(height: 8)
-                .clipShape(Capsule())
-            }
-            .padding(.horizontal)
-        }
-    }
-}

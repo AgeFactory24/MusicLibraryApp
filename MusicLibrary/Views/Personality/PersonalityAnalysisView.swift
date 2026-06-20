@@ -132,6 +132,7 @@ private struct HeroCard: View {
     @State private var orbAnimate = false
     @State private var glowPulse = false
     @State private var appeared = false
+    @State private var waveStart = Date()
 
     // デバイスごとの上端余白（ノッチ / Dynamic Island 対応）
     private var topInset: CGFloat {
@@ -227,6 +228,7 @@ private struct HeroCard: View {
                 gradientAnimate = true
                 orbAnimate = true
                 glowPulse = true
+                waveStart = Date()
             }
             withAnimation(.spring(response: 0.7, dampingFraction: 0.72).delay(0.1)) {
                 appeared = true
@@ -246,6 +248,18 @@ private struct HeroCard: View {
                 reduceMotion ? nil : .easeInOut(duration: 7).repeatForever(autoreverses: true),
                 value: gradientAnimate
             )
+
+            // 波形アニメーション（3-A）
+            if !reduceMotion {
+                let gradColors = tag.personality.gradient
+                TimelineView(.animation) { ctx in
+                    let t = ctx.date.timeIntervalSince(waveStart)
+                    Canvas { drawCtx, sz in
+                        drawHeroWaveCanvas(&drawCtx, size: sz, t: t, colors: gradColors)
+                    }
+                }
+                .blendMode(.screen)
+            }
 
             // フローティング オーブ（拡散光）
             if !reduceMotion {
@@ -641,6 +655,49 @@ private struct PersonalityShareCard: View {
             }
             .padding(44)
         }
+    }
+}
+
+// MARK: - Hero波形描画（3-A パーソナリティ画面背景を波形に）
+
+private func drawHeroWaveCanvas(
+    _ ctx: inout GraphicsContext,
+    size: CGSize,
+    t: Double,
+    colors: [Color]
+) {
+    let w = size.width
+    let h = size.height
+    let c1 = colors.first ?? .pink
+    let c2 = colors.last ?? .purple
+
+    let defs: [(freq: Double, amp: Double, spd: Double, yFrac: Double, usesC1: Bool, op: Double)] = [
+        (0.010, h * 0.07, 0.60, 0.18, true,  0.20),
+        (0.008, h * 0.09, 0.95, 0.35, false, 0.24),
+        (0.013, h * 0.06, 0.80, 0.52, true,  0.17),
+        (0.009, h * 0.08, 1.15, 0.68, false, 0.21),
+    ]
+    for wd in defs {
+        let wc = wd.usesC1 ? c1 : c2
+        var pts = [CGPoint]()
+        var x: Double = 0
+        while x <= w {
+            let y = h * wd.yFrac
+                + sin(x * wd.freq - t * wd.spd) * wd.amp
+                + sin(x * wd.freq * 1.7 + t * wd.spd * 0.55) * wd.amp * 0.35
+            pts.append(CGPoint(x: x, y: y))
+            x += 4
+        }
+        guard pts.count >= 2 else { continue }
+        var path = Path()
+        path.move(to: pts[0])
+        for j in 1..<pts.count - 1 {
+            let m = CGPoint(x: (pts[j].x + pts[j+1].x) / 2,
+                            y: (pts[j].y + pts[j+1].y) / 2)
+            path.addQuadCurve(to: m, control: pts[j])
+        }
+        path.addLine(to: pts.last!)
+        ctx.stroke(path, with: .color(wc.opacity(wd.op)), lineWidth: 1.8)
     }
 }
 
