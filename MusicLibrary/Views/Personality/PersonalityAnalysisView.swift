@@ -699,6 +699,7 @@ struct PersonalityExploreSheet: View {
     @Environment(\.dismiss) private var dismiss
     @State private var currentIndex: Int = 0
     @State private var waveStart = Date()
+    @State private var dragOffset: CGFloat = 0
 
     private let allPersonalities = Personality.allCases
 
@@ -765,6 +766,27 @@ struct PersonalityExploreSheet: View {
                 .indexViewStyle(.page(backgroundDisplayMode: .always))
             }
         }
+        .offset(y: dragOffset)
+        .simultaneousGesture(
+            DragGesture(minimumDistance: 20)
+                .onChanged { value in
+                    // 縦方向が横より優勢なときだけ追従（TabViewの横スワイプと競合しない）
+                    guard value.translation.height > 0,
+                          abs(value.translation.height) > abs(value.translation.width) else { return }
+                    dragOffset = value.translation.height
+                }
+                .onEnded { value in
+                    let isDown = abs(value.translation.height) > abs(value.translation.width)
+                    if isDown && value.translation.height > 80 {
+                        Haptics.play(.light)
+                        dismiss()
+                    } else {
+                        withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                            dragOffset = 0
+                        }
+                    }
+                }
+        )
         .preferredColorScheme(.dark)
         .statusBarHidden(true)
         .onAppear {

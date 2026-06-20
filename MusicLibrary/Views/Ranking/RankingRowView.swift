@@ -5,11 +5,15 @@
 
 import SwiftUI
 
+// アニメーション対象ウィンドウ（ロードから1.2秒以内に現れた行のみアニメーション）
+private let kAnimationWindow: TimeInterval = 1.2
+
 // MARK: - 楽曲ランキング行
 
 struct RankingRowView: View {
     let rank: Int
     let track: Track
+    let loadTime: Date
 
     @State private var appeared = false
 
@@ -51,10 +55,6 @@ struct RankingRowView: View {
                     .font(.subheadline.bold())
                     .foregroundStyle(AppTheme.Colors.plays)
                     .scaleEffect(appeared ? 1 : 0.6)
-                    .animation(
-                        .spring(response: 0.5, dampingFraction: 0.6).delay(delay + 0.1),
-                        value: appeared
-                    )
                 Text("回")
                     .font(.caption2)
                     .foregroundStyle(.secondary)
@@ -63,9 +63,17 @@ struct RankingRowView: View {
         .padding(.vertical, 6)
         .opacity(appeared ? 1 : 0)
         .offset(x: appeared ? 0 : -28)
-        .animation(.spring(response: 0.42, dampingFraction: 0.78).delay(delay), value: appeared)
-        .onAppear { appeared = true }
-        .onDisappear { appeared = false }
+        .onAppear {
+            guard !appeared else { return }
+            let elapsed = Date().timeIntervalSince(loadTime)
+            if elapsed < kAnimationWindow {
+                withAnimation(.spring(response: 0.42, dampingFraction: 0.78).delay(delay)) {
+                    appeared = true
+                }
+            } else {
+                appeared = true  // スクロール先は即表示（アニメなし）
+            }
+        }
     }
 
     private var rankMedal: String {
@@ -83,6 +91,7 @@ struct RankingRowView: View {
 struct ArtistRankingRowView: View {
     let rank: Int
     let artist: Artist
+    let loadTime: Date
 
     @State private var appeared = false
 
@@ -112,10 +121,6 @@ struct ArtistRankingRowView: View {
                     .font(.subheadline.bold())
                     .foregroundStyle(AppTheme.Colors.plays)
                     .scaleEffect(appeared ? 1 : 0.6)
-                    .animation(
-                        .spring(response: 0.5, dampingFraction: 0.6).delay(delay + 0.1),
-                        value: appeared
-                    )
                 Text("回")
                     .font(.caption2)
                     .foregroundStyle(.secondary)
@@ -124,9 +129,17 @@ struct ArtistRankingRowView: View {
         .padding(.vertical, 6)
         .opacity(appeared ? 1 : 0)
         .offset(x: appeared ? 0 : -28)
-        .animation(.spring(response: 0.42, dampingFraction: 0.78).delay(delay), value: appeared)
-        .onAppear { appeared = true }
-        .onDisappear { appeared = false }
+        .onAppear {
+            guard !appeared else { return }
+            let elapsed = Date().timeIntervalSince(loadTime)
+            if elapsed < kAnimationWindow {
+                withAnimation(.spring(response: 0.42, dampingFraction: 0.78).delay(delay)) {
+                    appeared = true
+                }
+            } else {
+                appeared = true
+            }
+        }
     }
 
     private var rankMedal: String {
@@ -144,6 +157,7 @@ struct ArtistRankingRowView: View {
 struct AlbumRankingRowView: View {
     let rank: Int
     let album: Album
+    let loadTime: Date
 
     @State private var appeared = false
 
@@ -174,10 +188,6 @@ struct AlbumRankingRowView: View {
                     .font(.subheadline.bold())
                     .foregroundStyle(AppTheme.Colors.plays)
                     .scaleEffect(appeared ? 1 : 0.6)
-                    .animation(
-                        .spring(response: 0.5, dampingFraction: 0.6).delay(delay + 0.1),
-                        value: appeared
-                    )
                 Text("回")
                     .font(.caption2)
                     .foregroundStyle(.secondary)
@@ -186,9 +196,17 @@ struct AlbumRankingRowView: View {
         .padding(.vertical, 6)
         .opacity(appeared ? 1 : 0)
         .offset(x: appeared ? 0 : -28)
-        .animation(.spring(response: 0.42, dampingFraction: 0.78).delay(delay), value: appeared)
-        .onAppear { appeared = true }
-        .onDisappear { appeared = false }
+        .onAppear {
+            guard !appeared else { return }
+            let elapsed = Date().timeIntervalSince(loadTime)
+            if elapsed < kAnimationWindow {
+                withAnimation(.spring(response: 0.42, dampingFraction: 0.78).delay(delay)) {
+                    appeared = true
+                }
+            } else {
+                appeared = true
+            }
+        }
     }
 
     private var rankMedal: String {

@@ -11,6 +11,8 @@ struct RankingView: View {
     @State private var searchText = ""
     @State private var isSearchPresented = false
     @FocusState private var isSearchFocused: Bool
+    /// 行アニメーション基準時刻（表示直後の行のみアニメーション、スクロール先は即表示）
+    @State private var rankingLoadTime: Date = Date()
 
     // MARK: - Filtered data
 
@@ -64,7 +66,7 @@ struct RankingView: View {
                             NavigationLink {
                                 TrackDetailView(track: track)
                             } label: {
-                                RankingRowView(rank: index + 1, track: track)
+                                RankingRowView(rank: index + 1, track: track, loadTime: rankingLoadTime)
                             }
                             .listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 4, trailing: 16))
                         }
@@ -73,7 +75,7 @@ struct RankingView: View {
                             NavigationLink {
                                 ArtistDetailView(artist: artist)
                             } label: {
-                                ArtistRankingRowView(rank: index + 1, artist: artist)
+                                ArtistRankingRowView(rank: index + 1, artist: artist, loadTime: rankingLoadTime)
                             }
                             .listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 4, trailing: 16))
                         }
@@ -82,7 +84,7 @@ struct RankingView: View {
                             NavigationLink {
                                 AlbumDetailView(album: album)
                             } label: {
-                                AlbumRankingRowView(rank: index + 1, album: album)
+                                AlbumRankingRowView(rank: index + 1, album: album, loadTime: rankingLoadTime)
                             }
                             .listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 4, trailing: 16))
                         }
@@ -121,6 +123,13 @@ struct RankingView: View {
             }
             .onChange(of: rankingVM.rankingPeriod) { _, _ in
                 rankingVM.buildRanking(libraryTracks: libraryVM.tracks)
+                rankingLoadTime = Date()
+            }
+            .onChange(of: rankingVM.rankingType) { _, _ in
+                rankingLoadTime = Date()
+            }
+            .onAppear {
+                rankingLoadTime = Date()
             }
         }
     }
