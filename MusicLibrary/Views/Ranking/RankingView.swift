@@ -59,50 +59,62 @@ struct RankingView: View {
                         .transition(.move(edge: .top).combined(with: .opacity))
                 }
 
-                List {
-                    switch rankingVM.rankingType {
-                    case .tracks:
-                        ForEach(Array(filteredTracks.enumerated()), id: \.element.id) { index, track in
-                            NavigationLink {
-                                TrackDetailView(track: track)
-                            } label: {
-                                RankingRowView(rank: index + 1, track: track, loadTime: rankingLoadTime)
+                ScrollViewReader { proxy in
+                    List {
+                        switch rankingVM.rankingType {
+                        case .tracks:
+                            ForEach(Array(filteredTracks.enumerated()), id: \.element.id) { index, track in
+                                NavigationLink {
+                                    TrackDetailView(track: track)
+                                } label: {
+                                    RankingRowView(rank: index + 1, track: track, loadTime: rankingLoadTime)
+                                }
+                                .listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 4, trailing: 16))
+                                .id("row_\(index)")
                             }
-                            .listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 4, trailing: 16))
+                        case .artists:
+                            ForEach(Array(filteredArtists.enumerated()), id: \.element.id) { index, artist in
+                                NavigationLink {
+                                    ArtistDetailView(artist: artist)
+                                } label: {
+                                    ArtistRankingRowView(rank: index + 1, artist: artist, loadTime: rankingLoadTime)
+                                }
+                                .listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 4, trailing: 16))
+                                .id("row_\(index)")
+                            }
+                        case .albums:
+                            ForEach(Array(filteredAlbums.enumerated()), id: \.element.id) { index, album in
+                                NavigationLink {
+                                    AlbumDetailView(album: album)
+                                } label: {
+                                    AlbumRankingRowView(rank: index + 1, album: album, loadTime: rankingLoadTime)
+                                }
+                                .listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 4, trailing: 16))
+                                .id("row_\(index)")
+                            }
                         }
-                    case .artists:
-                        ForEach(Array(filteredArtists.enumerated()), id: \.element.id) { index, artist in
-                            NavigationLink {
-                                ArtistDetailView(artist: artist)
-                            } label: {
-                                ArtistRankingRowView(rank: index + 1, artist: artist, loadTime: rankingLoadTime)
+                    }
+                    .listStyle(.plain)
+                    .simultaneousGesture(
+                        DragGesture(minimumDistance: 40, coordinateSpace: .local)
+                            .onEnded { value in
+                                guard !isSearchPresented else { return }
+                                guard abs(value.translation.width) > abs(value.translation.height) * 1.5 else { return }
+                                if value.translation.width < 0 {
+                                    switchRankingType(by: 1)
+                                } else {
+                                    switchRankingType(by: -1)
+                                }
                             }
-                            .listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 4, trailing: 16))
-                        }
-                    case .albums:
-                        ForEach(Array(filteredAlbums.enumerated()), id: \.element.id) { index, album in
-                            NavigationLink {
-                                AlbumDetailView(album: album)
-                            } label: {
-                                AlbumRankingRowView(rank: index + 1, album: album, loadTime: rankingLoadTime)
-                            }
-                            .listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 4, trailing: 16))
+                    )
+                    .onChange(of: rankingVM.rankingType) { _, _ in
+                        rankingLoadTime = Date()
+                        Task { @MainActor in
+                            try? await Task.sleep(for: .milliseconds(50))
+                            proxy.scrollTo("row_0", anchor: .top)
                         }
                     }
                 }
-                .listStyle(.plain)
-                .simultaneousGesture(
-                    DragGesture(minimumDistance: 40, coordinateSpace: .local)
-                        .onEnded { value in
-                            guard !isSearchPresented else { return }
-                            guard abs(value.translation.width) > abs(value.translation.height) * 1.5 else { return }
-                            if value.translation.width < 0 {
-                                switchRankingType(by: 1)
-                            } else {
-                                switchRankingType(by: -1)
-                            }
-                        }
-                )
             }
             .navigationTitle("ランキング")
             .toolbar {
@@ -123,9 +135,6 @@ struct RankingView: View {
             }
             .onChange(of: rankingVM.rankingPeriod) { _, _ in
                 rankingVM.buildRanking(libraryTracks: libraryVM.tracks)
-                rankingLoadTime = Date()
-            }
-            .onChange(of: rankingVM.rankingType) { _, _ in
                 rankingLoadTime = Date()
             }
             .onAppear {
