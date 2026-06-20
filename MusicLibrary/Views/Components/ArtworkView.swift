@@ -247,7 +247,7 @@ struct TrackArtworkView: View {
             }
             if hasCustomImage {
                 Button("カスタム画像を削除", role: .destructive) {
-                    artworkService.deleteCustomImage(key: track.albumTitle, type: .album)
+                    artworkService.deleteCustomImage(key: albumCacheKey, type: .album)
                     Task { await loadImage() }
                 }
             }
@@ -259,8 +259,8 @@ struct TrackArtworkView: View {
             Task {
                 if let data = try? await newItem.loadTransferable(type: Data.self),
                    let img = UIImage(data: data) {
-                    // 楽曲のアートワークはアルバム単位で保存
-                    artworkService.saveCustomImage(img, key: track.albumTitle, type: .album)
+                    // 楽曲のアートワークはアルバム単位（albumTitle + artistName）で保存
+                    artworkService.saveCustomImage(img, key: albumCacheKey, type: .album)
                     image = img
                 }
                 photoItem = nil
@@ -268,21 +268,27 @@ struct TrackArtworkView: View {
         }
     }
 
+    // アルバムを一意に識別するための複合キー（同名アルバムの混在防止）
+    private var albumCacheKey: String { "\(track.albumTitle)//\(track.artistName)" }
+
     private func loadImage() async {
-        // ① アルバムのカスタム画像
-        if let custom = artworkService.loadCustomImage(key: track.albumTitle, type: .album) {
+        // ① アルバムのカスタム画像（albumTitle + artistName で一意に特定）
+        if let custom = artworkService.loadCustomImage(key: albumCacheKey, type: .album) {
             image = custom
             return
         }
-        // ② MPMediaItemから取得
+        // ② MPMediaItemから取得（persistentID で確実にその楽曲のアートワークを取得）
         if let pid = UInt64(track.id),
            let mp = artworkService.fetchTrackArtwork(persistentID: pid) {
             image = mp
             return
         }
-        // ③ iTunes Search APIから取得（アルバム単位）
+        // ③ iTunes Search APIから取得（Apple Music楽曲のみ）
+        // ローカル音源はスキップ: 埋め込みアートがない場合に Apple Music カタログの
+        // 別バージョン（リマスター等）のジャケ写で上書きされるのを防ぐ
+        guard !track.isLocalAsset else { return }
         let dummyAlbum = Album(
-            id: track.albumTitle,
+            id: albumCacheKey,
             title: track.albumTitle,
             artistName: track.artistName,
             artworkURL: nil,
@@ -292,7 +298,7 @@ struct TrackArtworkView: View {
     }
 
     private var hasCustomImage: Bool {
-        artworkService.loadCustomImage(key: track.albumTitle, type: .album) != nil
+        artworkService.loadCustomImage(key: albumCacheKey, type: .album) != nil
     }
 
     private var gradient: LinearGradient {

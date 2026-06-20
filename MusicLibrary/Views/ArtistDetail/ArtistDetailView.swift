@@ -60,9 +60,6 @@ struct ArtistDetailView: View {
                 .font(.title2.bold())
                 .multilineTextAlignment(.center)
 
-            Text("画像を長押しで変更")
-                .font(.caption2)
-                .foregroundStyle(.secondary)
         }
         .padding(.top)
     }

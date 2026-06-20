@@ -7,9 +7,16 @@ import SwiftUI
 
 struct AlbumDetailView: View {
     let album: Album
+    @EnvironmentObject var libraryVM: LibraryViewModel
 
     private var topTracks: [Track] {
         album.tracks.sorted { $0.playCount > $1.playCount }
+    }
+
+    private var artistForDetail: Artist? {
+        let tracks = libraryVM.tracks.filter { $0.artistName == album.artistName }
+        guard !tracks.isEmpty else { return nil }
+        return Artist(id: album.artistName, name: album.artistName, artworkURL: nil, tracks: tracks)
     }
 
     var body: some View {
@@ -39,14 +46,23 @@ struct AlbumDetailView: View {
                 Text(album.title)
                     .font(.title2.bold())
                     .multilineTextAlignment(.center)
-                Text(album.artistName)
-                    .font(.headline)
-                    .foregroundStyle(.secondary)
+
+                if let artist = artistForDetail {
+                    NavigationLink {
+                        ArtistDetailView(artist: artist)
+                    } label: {
+                        Text(album.artistName)
+                            .font(.headline)
+                            .foregroundStyle(.pink)
+                    }
+                    .buttonStyle(.plain)
+                } else {
+                    Text(album.artistName)
+                        .font(.headline)
+                        .foregroundStyle(.secondary)
+                }
             }
 
-            Text("画像を長押しで変更")
-                .font(.caption2)
-                .foregroundStyle(.secondary)
         }
         .padding(.top)
     }

@@ -23,6 +23,24 @@ struct TrackDetailView: View {
         return Artist(id: track.artistName, name: track.artistName, artworkURL: nil, tracks: artistTracks)
     }
 
+    private var albumForDetail: Album? {
+        if let found = libraryVM.albums.first(where: {
+            $0.title == track.albumTitle && $0.artistName == track.artistName
+        }) { return found }
+        let albumTracks = libraryVM.tracks.filter {
+            $0.albumTitle == track.albumTitle && $0.artistName == track.artistName
+        }
+        guard !albumTracks.isEmpty else { return nil }
+        return Album(id: track.albumTitle, title: track.albumTitle,
+                     artistName: track.artistName, artworkURL: nil, tracks: albumTracks)
+    }
+
+    private static let dateFormatter: DateFormatter = {
+        let f = DateFormatter()
+        f.dateFormat = "yyyy/MM/dd"
+        return f
+    }()
+
     var body: some View {
         ScrollView {
             VStack(spacing: 20) {
@@ -36,17 +54,38 @@ struct TrackDetailView: View {
                         Text(track.title)
                             .font(.title2.bold())
                             .multilineTextAlignment(.center)
-                        Text(track.artistName)
-                            .font(.headline)
-                            .foregroundStyle(.secondary)
-                        Text(track.albumTitle)
-                            .font(.subheadline)
-                            .foregroundStyle(.secondary)
+
+                        if let artist = artistForDetail {
+                            NavigationLink {
+                                ArtistDetailView(artist: artist)
+                            } label: {
+                                Text(track.artistName)
+                                    .font(.headline)
+                                    .foregroundStyle(.pink)
+                            }
+                            .buttonStyle(.plain)
+                        } else {
+                            Text(track.artistName)
+                                .font(.headline)
+                                .foregroundStyle(.secondary)
+                        }
+
+                        if let album = albumForDetail {
+                            NavigationLink {
+                                AlbumDetailView(album: album)
+                            } label: {
+                                Text(track.albumTitle)
+                                    .font(.subheadline)
+                                    .foregroundStyle(.pink.opacity(0.8))
+                            }
+                            .buttonStyle(.plain)
+                        } else {
+                            Text(track.albumTitle)
+                                .font(.subheadline)
+                                .foregroundStyle(.secondary)
+                        }
                     }
 
-                    Text("画像を長押しで変更")
-                        .font(.caption2)
-                        .foregroundStyle(.secondary)
                 }
                 .padding(.top)
 
@@ -80,74 +119,7 @@ struct TrackDetailView: View {
                     // 楽曲情報
                     trackInfoCard
 
-                    // 同アーティストを見る
-                    if let artist = artistForDetail {
-                        NavigationLink {
-                            ArtistDetailView(artist: artist)
-                        } label: {
-                            HStack {
-                                ArtistArtworkView(artist: artist, size: 40)
-                                VStack(alignment: .leading, spacing: 2) {
-                                    Text(track.artistName)
-                                        .font(.subheadline.bold())
-                                        .foregroundStyle(.primary)
-                                    Text("このアーティストの楽曲を見る")
-                                        .font(.caption)
-                                        .foregroundStyle(.pink)
-                                }
-                                Spacer()
-                                Image(systemName: "chevron.right")
-                                    .foregroundStyle(.secondary)
-                                    .font(.caption)
-                            }
-                            .padding()
-                            .background(Color(.secondarySystemBackground))
-                            .clipShape(RoundedRectangle(cornerRadius: 14))
-                            .padding(.horizontal)
-                        }
-                        .buttonStyle(.plain)
-                    }
 
-                    // 初回再生日
-                    if let first = data.firstPlayedAt {
-                        HStack {
-                            Image(systemName: "calendar")
-                                .foregroundStyle(.secondary)
-                            Text("初回再生: \(first.formatted(date: .abbreviated, time: .omitted))")
-                                .font(.subheadline)
-                                .foregroundStyle(.secondary)
-                            Spacer()
-                        }
-                        .padding(.horizontal)
-                    }
-
-                    // 最近の再生
-                    if !data.history.isEmpty {
-                        VStack(alignment: .leading, spacing: 8) {
-                            Text("最近の再生")
-                                .font(.headline)
-                                .padding(.horizontal)
-
-                            VStack(spacing: 0) {
-                                ForEach(Array(data.history.prefix(10))) { entry in
-                                    HStack {
-                                        Image(systemName: "play.fill")
-                                            .font(.caption)
-                                            .foregroundStyle(.pink)
-                                        Text(entry.playedAt.formatted(date: .abbreviated, time: .shortened))
-                                            .font(.subheadline)
-                                        Spacer()
-                                    }
-                                    .padding(.vertical, 8)
-                                    .padding(.horizontal)
-                                    Divider()
-                                }
-                            }
-                            .background(Color(.secondarySystemBackground))
-                            .clipShape(RoundedRectangle(cornerRadius: 16))
-                            .padding(.horizontal)
-                        }
-                    }
                 }
             }
             .padding(.vertical)
@@ -184,7 +156,7 @@ struct TrackDetailView: View {
                 if let added = track.dateAdded {
                     Divider().padding(.leading, 16)
                     infoRow(label: "ライブラリ追加日",
-                            value: added.formatted(date: .abbreviated, time: .omitted),
+                            value: Self.dateFormatter.string(from: added),
                             icon: "plus.circle")
                 }
             }

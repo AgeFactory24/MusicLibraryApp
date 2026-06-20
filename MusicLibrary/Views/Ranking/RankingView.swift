@@ -89,6 +89,18 @@ struct RankingView: View {
                     }
                 }
                 .listStyle(.plain)
+                .simultaneousGesture(
+                    DragGesture(minimumDistance: 40, coordinateSpace: .local)
+                        .onEnded { value in
+                            guard !isSearchPresented else { return }
+                            guard abs(value.translation.width) > abs(value.translation.height) * 1.5 else { return }
+                            if value.translation.width < 0 {
+                                switchRankingType(by: 1)
+                            } else {
+                                switchRankingType(by: -1)
+                            }
+                        }
+                )
             }
             .navigationTitle("ランキング")
             .toolbar {
@@ -110,6 +122,17 @@ struct RankingView: View {
             .onChange(of: rankingVM.rankingPeriod) { _, _ in
                 rankingVM.buildRanking(libraryTracks: libraryVM.tracks)
             }
+        }
+    }
+
+    private func switchRankingType(by offset: Int) {
+        let types = RankingType.allCases
+        guard let current = types.firstIndex(of: rankingVM.rankingType) else { return }
+        let next = current + offset
+        guard next >= 0 && next < types.count else { return }
+        Haptics.play(.light)
+        withAnimation(.easeInOut(duration: 0.2)) {
+            rankingVM.rankingType = types[next]
         }
     }
 

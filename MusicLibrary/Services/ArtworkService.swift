@@ -111,9 +111,13 @@ final class ArtworkService: ObservableObject {
         if let custom = loadCustomImage(key: album.id, type: .album) {
             return custom
         }
-        if let firstTrack = album.tracks.first,
-           let persistentID = UInt64(firstTrack.id) {
-            return fetchTrackArtwork(persistentID: persistentID)
+        // 先頭トラックだけでなく全トラックを走査: 埋め込みアートなしのトラックが先頭でも
+        // 別トラックから正しいジャケットを取得できるようにする
+        for track in album.tracks {
+            if let pid = UInt64(track.id),
+               let art = fetchTrackArtwork(persistentID: pid) {
+                return art
+            }
         }
         return nil
     }
@@ -195,6 +199,12 @@ final class ArtworkService: ObservableObject {
     func loadAlbumImage(album: Album) async -> UIImage? {
         if let local = resolveAlbumArtwork(album: album) {
             return local
+        }
+        // ローカル音源のみで構成されたアルバムは iTunes API をスキップ
+        // 埋め込みアートがない場合でも Apple Music カタログの別バージョンのジャケ写で
+        // 上書きされないようにする（リマスター版・配信版との混在防止）
+        if !album.tracks.isEmpty, album.tracks.allSatisfy({ $0.isLocalAsset }) {
+            return nil
         }
 
         let key = album.id

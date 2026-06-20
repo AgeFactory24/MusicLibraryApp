@@ -50,14 +50,17 @@ final class MusicLibraryService: ObservableObject {
     // MARK: - アルバム単位で集計
 
     func buildAlbums(from tracks: [Track]) -> [Album] {
-        let grouped = Dictionary(grouping: tracks, by: \.albumTitle)
-        return grouped.map { title, tracks in
-            Album(
-                id: title,
-                title: title,
-                artistName: tracks.first?.artistName ?? "",
+        // アルバムタイトルだけでグループ化すると、同名アルバムが異アーティストで混在してジャケ写が混入するため
+        // albumTitle + artistName の複合キーで一意に識別する
+        let grouped = Dictionary(grouping: tracks) { "\($0.albumTitle)//\($0.artistName)" }
+        return grouped.map { _, albumTracks in
+            let first = albumTracks[0]
+            return Album(
+                id: "\(first.albumTitle)//\(first.artistName)",
+                title: first.albumTitle,
+                artistName: first.artistName,
                 artworkURL: nil,
-                tracks: tracks
+                tracks: albumTracks
             )
         }
         .sorted { $0.totalPlayCount > $1.totalPlayCount }
