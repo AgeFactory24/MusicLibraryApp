@@ -5,15 +5,21 @@
 
 import SwiftUI
 
+// MARK: - 楽曲ランキング行
+
 struct RankingRowView: View {
     let rank: Int
     let track: Track
 
+    @State private var appeared = false
+
+    private var delay: Double { Double(min(rank - 1, 20)) * 0.028 }
+
     var rankColor: Color {
         switch rank {
-        case 1: return .yellow
-        case 2: return Color(.systemGray)
-        case 3: return .orange
+        case 1: return AppTheme.Colors.rankGold
+        case 2: return AppTheme.Colors.rankSilver
+        case 3: return AppTheme.Colors.rankBronze
         default: return .primary
         }
     }
@@ -43,15 +49,23 @@ struct RankingRowView: View {
             VStack(alignment: .trailing, spacing: 2) {
                 Text("\(track.playCount)")
                     .font(.subheadline.bold())
-                    .foregroundStyle(.pink)
+                    .foregroundStyle(AppTheme.Colors.plays)
+                    .scaleEffect(appeared ? 1 : 0.6)
+                    .animation(
+                        .spring(response: 0.5, dampingFraction: 0.6).delay(delay + 0.1),
+                        value: appeared
+                    )
                 Text("回")
                     .font(.caption2)
                     .foregroundStyle(.secondary)
             }
         }
         .padding(.vertical, 6)
-        // ※ onTapGesture は使わない（NavigationLink のタップを奪うため）
-        // ハプティックは親View側のNavigationLinkで処理
+        .opacity(appeared ? 1 : 0)
+        .offset(x: appeared ? 0 : -28)
+        .animation(.spring(response: 0.42, dampingFraction: 0.78).delay(delay), value: appeared)
+        .onAppear { appeared = true }
+        .onDisappear { appeared = false }
     }
 
     private var rankMedal: String {
@@ -64,9 +78,15 @@ struct RankingRowView: View {
     }
 }
 
+// MARK: - アーティストランキング行
+
 struct ArtistRankingRowView: View {
     let rank: Int
     let artist: Artist
+
+    @State private var appeared = false
+
+    private var delay: Double { Double(min(rank - 1, 20)) * 0.028 }
 
     var body: some View {
         HStack(spacing: 12) {
@@ -90,13 +110,23 @@ struct ArtistRankingRowView: View {
             VStack(alignment: .trailing, spacing: 2) {
                 Text("\(artist.totalPlayCount)")
                     .font(.subheadline.bold())
-                    .foregroundStyle(.pink)
+                    .foregroundStyle(AppTheme.Colors.plays)
+                    .scaleEffect(appeared ? 1 : 0.6)
+                    .animation(
+                        .spring(response: 0.5, dampingFraction: 0.6).delay(delay + 0.1),
+                        value: appeared
+                    )
                 Text("回")
                     .font(.caption2)
                     .foregroundStyle(.secondary)
             }
         }
         .padding(.vertical, 6)
+        .opacity(appeared ? 1 : 0)
+        .offset(x: appeared ? 0 : -28)
+        .animation(.spring(response: 0.42, dampingFraction: 0.78).delay(delay), value: appeared)
+        .onAppear { appeared = true }
+        .onDisappear { appeared = false }
     }
 
     private var rankMedal: String {
@@ -109,9 +139,15 @@ struct ArtistRankingRowView: View {
     }
 }
 
+// MARK: - アルバムランキング行
+
 struct AlbumRankingRowView: View {
     let rank: Int
     let album: Album
+
+    @State private var appeared = false
+
+    private var delay: Double { Double(min(rank - 1, 20)) * 0.028 }
 
     var body: some View {
         HStack(spacing: 12) {
@@ -136,13 +172,23 @@ struct AlbumRankingRowView: View {
             VStack(alignment: .trailing, spacing: 2) {
                 Text("\(album.totalPlayCount)")
                     .font(.subheadline.bold())
-                    .foregroundStyle(.pink)
+                    .foregroundStyle(AppTheme.Colors.plays)
+                    .scaleEffect(appeared ? 1 : 0.6)
+                    .animation(
+                        .spring(response: 0.5, dampingFraction: 0.6).delay(delay + 0.1),
+                        value: appeared
+                    )
                 Text("回")
                     .font(.caption2)
                     .foregroundStyle(.secondary)
             }
         }
         .padding(.vertical, 6)
+        .opacity(appeared ? 1 : 0)
+        .offset(x: appeared ? 0 : -28)
+        .animation(.spring(response: 0.42, dampingFraction: 0.78).delay(delay), value: appeared)
+        .onAppear { appeared = true }
+        .onDisappear { appeared = false }
     }
 
     private var rankMedal: String {

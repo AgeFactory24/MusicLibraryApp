@@ -11,6 +11,8 @@ struct PersonalityAnalysisView: View {
     @StateObject private var vm = PersonalityAnalysisViewModel()
     @State private var shareImage: UIImage?
     @State private var showShareSheet = false
+    @State private var showExplore = false
+    @State private var exploreStartIndex = 0
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @AppStorage("DEV.PreviewPersonality") private var previewPersonalityRaw: String = ""
 
@@ -48,6 +50,9 @@ struct PersonalityAnalysisView: View {
         .sheet(isPresented: $showShareSheet) {
             if let img = shareImage { ActivityShareSheet(items: [img]) }
         }
+        .fullScreenCover(isPresented: $showExplore) {
+            PersonalityExploreSheet(userTags: vm.tags, startIndex: exploreStartIndex)
+        }
     }
 
     private var loadingView: some View {
@@ -82,6 +87,33 @@ struct PersonalityAnalysisView: View {
                     if vm.tags.count > 1 {
                         OtherFacetsSection(tags: Array(vm.tags.dropFirst()), reduceMotion: reduceMotion)
                     }
+
+                    // 3-B: 横スワイプ探索モード
+                    Button {
+                        Haptics.play(.medium)
+                        if let top = effectiveTopTag,
+                           let idx = Personality.allCases.firstIndex(of: top.personality) {
+                            exploreStartIndex = idx
+                        }
+                        showExplore = true
+                    } label: {
+                        HStack(spacing: 10) {
+                            Image(systemName: "square.grid.3x2")
+                                .font(.subheadline)
+                            Text("12のパーソナリティをすべて探索")
+                                .font(.subheadline.bold())
+                            Spacer()
+                            Image(systemName: "chevron.right")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                        .foregroundStyle(.primary)
+                        .padding(.horizontal, AppTheme.Spacing.md)
+                        .padding(.vertical, 14)
+                        .appCard()
+                    }
+                    .buttonStyle(.plain)
+                    .padding(.horizontal)
 
                     PrecisionNoticeView()
 
@@ -654,6 +686,213 @@ private struct PersonalityShareCard: View {
                 .padding(.top, 4)
             }
             .padding(44)
+        }
+    }
+}
+
+// MARK: - 3-B 横スワイプ探索モード
+
+struct PersonalityExploreSheet: View {
+    let userTags: [PersonalityTag]
+    let startIndex: Int
+
+    @Environment(\.dismiss) private var dismiss
+    @State private var currentIndex: Int = 0
+    @State private var waveStart = Date()
+
+    private let allPersonalities = Personality.allCases
+
+    private func userScore(for p: Personality) -> Double? {
+        userTags.first(where: { $0.personality == p })?.score
+    }
+    private var topPersonality: Personality? { userTags.first?.personality }
+
+    var body: some View {
+        ZStack(alignment: .topLeading) {
+            // グラデーション背景（ページに合わせて変化）
+            let colors = allPersonalities[currentIndex].gradient
+            LinearGradient(colors: colors, startPoint: .topLeading, endPoint: .bottomTrailing)
+                .ignoresSafeArea()
+                .animation(.easeInOut(duration: 0.4), value: currentIndex)
+
+            // 静止波形
+            TimelineView(.animation) { ctx in
+                let t = ctx.date.timeIntervalSince(waveStart)
+                Canvas { drawCtx, sz in
+                    drawHeroWaveCanvas(&drawCtx, size: sz, t: t, colors: colors)
+                }
+            }
+            .blendMode(.screen)
+            .ignoresSafeArea()
+            .animation(.easeInOut(duration: 0.4), value: currentIndex)
+
+            // ダークオーバーレイ
+            Color.black.opacity(0.35).ignoresSafeArea()
+
+            VStack(spacing: 0) {
+                // 閉じるボタン
+                HStack {
+                    Button {
+                        Haptics.play(.light)
+                        dismiss()
+                    } label: {
+                        Image(systemName: "xmark.circle.fill")
+                            .font(.title2)
+                            .foregroundStyle(.white.opacity(0.8))
+                            .symbolRenderingMode(.hierarchical)
+                    }
+                    Spacer()
+                    Text("\(currentIndex + 1) / \(allPersonalities.count)")
+                        .font(.caption.bold())
+                        .foregroundStyle(.white.opacity(0.65))
+                }
+                .padding(.horizontal, AppTheme.Spacing.lg)
+                .padding(.top, 56)
+                .padding(.bottom, AppTheme.Spacing.sm)
+
+                // スワイプカルーセル
+                TabView(selection: $currentIndex) {
+                    ForEach(Array(allPersonalities.enumerated()), id: \.element) { i, personality in
+                        PersonalityExploreCard(
+                            personality: personality,
+                            userScore: userScore(for: personality),
+                            isTop: personality == topPersonality
+                        )
+                        .tag(i)
+                    }
+                }
+                .tabViewStyle(.page(indexDisplayMode: .always))
+                .indexViewStyle(.page(backgroundDisplayMode: .always))
+            }
+        }
+        .preferredColorScheme(.dark)
+        .statusBarHidden(true)
+        .onAppear {
+            currentIndex = startIndex
+            waveStart = Date()
+        }
+    }
+}
+
+private struct PersonalityExploreCard: View {
+    let personality: Personality
+    let userScore: Double?
+    let isTop: Bool
+
+    @State private var appeared = false
+    @State private var barProgress: Double = 0
+
+    var body: some View {
+        ScrollView(showsIndicators: false) {
+            VStack(spacing: AppTheme.Spacing.lg) {
+
+                // バッジ
+                ZStack {
+                    if isTop || userScore != nil {
+                        Circle()
+                            .fill(RadialGradient(
+                                colors: [
+                                    (personality.gradient.first ?? .pink).opacity(0.45),
+                                    .clear
+                                ],
+                                center: .center, startRadius: 0, endRadius: 100
+                            ))
+                            .frame(width: 200, height: 200)
+                            .blur(radius: 20)
+                    }
+                    PersonalityIconSymbol(personality: personality, size: 140)
+                }
+                .scaleEffect(appeared ? 1 : 0.6)
+                .opacity(appeared ? 1 : 0)
+                .animation(.spring(response: 0.75, dampingFraction: 0.65).delay(0.05), value: appeared)
+
+                // あなたの人格バッジ
+                if isTop {
+                    Label("あなたの人格", systemImage: "star.fill")
+                        .font(.caption.bold())
+                        .foregroundStyle(.white)
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 6)
+                        .background(.white.opacity(0.22))
+                        .clipShape(Capsule())
+                        .opacity(appeared ? 1 : 0)
+                        .animation(.easeOut(duration: 0.4).delay(0.2), value: appeared)
+                }
+
+                // 名前
+                Text(personality.rawValue)
+                    .font(.system(size: 36, weight: .black, design: .rounded))
+                    .foregroundStyle(.white)
+                    .multilineTextAlignment(.center)
+                    .shadow(color: (personality.gradient.first ?? .pink).opacity(0.7), radius: 12)
+                    .opacity(appeared ? 1 : 0)
+                    .offset(y: appeared ? 0 : 12)
+                    .animation(.easeOut(duration: 0.45).delay(0.15), value: appeared)
+
+                // キャッチコピー
+                Text(personality.catchphrase)
+                    .font(.title3.italic())
+                    .foregroundStyle(.white.opacity(0.88))
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal, AppTheme.Spacing.xl)
+                    .opacity(appeared ? 1 : 0)
+                    .animation(.easeOut(duration: 0.45).delay(0.22), value: appeared)
+
+                // 説明
+                Text(personality.personalityDescription)
+                    .font(.subheadline)
+                    .foregroundStyle(.white.opacity(0.72))
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal, AppTheme.Spacing.xl)
+                    .opacity(appeared ? 1 : 0)
+                    .animation(.easeOut(duration: 0.45).delay(0.3), value: appeared)
+
+                // スコアバー
+                if let score = userScore {
+                    VStack(spacing: 10) {
+                        Text("あなたとの一致度")
+                            .font(.caption)
+                            .foregroundStyle(.white.opacity(0.65))
+
+                        GeometryReader { geo in
+                            ZStack(alignment: .leading) {
+                                Capsule().fill(.white.opacity(0.2))
+                                Capsule()
+                                    .fill(.white)
+                                    .frame(width: geo.size.width * barProgress)
+                            }
+                        }
+                        .frame(height: 6)
+                        .padding(.horizontal, AppTheme.Spacing.xl)
+
+                        Text("\(Int(score * 100))%")
+                            .font(.system(size: 28, weight: .black, design: .rounded))
+                            .foregroundStyle(.white)
+                    }
+                    .opacity(appeared ? 1 : 0)
+                    .animation(.easeOut(duration: 0.5).delay(0.4), value: appeared)
+                } else {
+                    Text("現在のあなたとは異なる傾向")
+                        .font(.caption)
+                        .foregroundStyle(.white.opacity(0.45))
+                        .opacity(appeared ? 1 : 0)
+                        .animation(.easeOut(duration: 0.4).delay(0.35), value: appeared)
+                }
+            }
+            .padding(.vertical, AppTheme.Spacing.xl)
+            .padding(.bottom, 60)
+        }
+        .onAppear {
+            appeared = true
+            if let score = userScore {
+                withAnimation(.spring(response: 0.8, dampingFraction: 0.75).delay(0.45)) {
+                    barProgress = min(score, 1)
+                }
+            }
+        }
+        .onDisappear {
+            appeared = false
+            barProgress = 0
         }
     }
 }
